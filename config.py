@@ -1,6 +1,6 @@
 import os
 from dotenv import load_dotenv
-
+#1486759905431130175,1486411439907274884
 load_dotenv()
 
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -11,10 +11,9 @@ GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
 # Danh sách ID các kênh được phép sử dụng bot
 # Thay thế các ID này bằng ID kênh của bạn
 ALLOWED_CHANNELS = [
-    1418088580344971375,1446865411814588426,1467752219012108446,1467224738308030474,1439553447384060047,1471789145725862010,1471804180514476043,1474535485488631911
+    1486759905431130175,1486411439907274884
 
-      # Thay thế bằng ID channel 2
-    # Thêm ID channel khác tại đây
+   
 ]
 
 # Server để lọc bot (tài khoản bị xâm nhập)
@@ -23,11 +22,11 @@ ALLOWED_CHANNELS = [
 BOT_FILTER_CHANNELS = [1411448689192603669]  # Thay bằng ID kênh thực
 
 # ID kênh để gửi tin nhắn hàng ngày lúc 5h sáng GMT+0 
-DAILY_MESSAGE_CHANNEL_ID = 1446865411814588426  # Thay bằng ID kênh của bạn
+DAILY_MESSAGE_CHANNEL_ID = 1486411439907274884  # Thay bằng ID kênh của bạn
 
 # ===== CẤU HÌNH ĐẾM NGƯỢC =====
 # ID kênh để gửi thông báo đếm ngược lúc 7h sáng GMT+7
-COUNTDOWN_CHANNEL_ID = [1446865411814588426,1446866616452386856]  # Thay bằng ID kênh của bạn
+COUNTDOWN_CHANNEL_ID = [1486411439907274884,1446866616452386856]  # Thay bằng ID kênh của bạn
 
 # Tên sự kiện đếm ngược
 COUNTDOWN_EVENT_NAME = "Kỳ thi Đánh giá năng lực (V-ACT) của ĐHQG-HCM"
@@ -37,11 +36,11 @@ COUNTDOWN_TARGET_DATE = "2026-04-05"
 
 # ===== CẤU HÌNH NHẮC NHỞ THPT =====
 # ID kênh mặc định gửi đếm ngược THPT lúc 7h30 GMT+7 (dùng khi chưa set bằng !setremainch)
-THPT_REMINDER_CHANNEL_ID = [1446865411814588426,1446866616452386856]  # Thay bằng ID kênh của bạn
+THPT_REMINDER_CHANNEL_ID = [1486411439907274884,1446866616452386856]  # Thay bằng ID kênh của bạn
 
 # ===== CẤU HÌNH DONATE =====
 # # ID kênh để gửi nhắc nhở donate mỗi 1 giờ
-DONATE_CHANNEL_ID = [1446865411814588426]  # Thay bằng ID kênh của bạn1
+DONATE_CHANNEL_ID = [1486411439907274884]  # Thay bằng ID kênh của bạn1
 
 
 # Kênh bot theo dõi spam: xóa tin vi phạm + gửi thông báo (cogs/spam.py) 1485265777102950430
@@ -68,7 +67,7 @@ SCHEDULED_CHANNEL_ID = [1439553447384060047,1446865411814588426]  # Thay bằng 
 
 # ===== CẤU HÌNH GIÁ XĂNG =====
 # ID kênh để gửi thông báo giá xăng hàng ngày lúc 10h sáng GMT+7
-FUEL_CHANNEL_ID = [1446865411814588426111]  # Thay bằng ID kênh của bạn
+FUEL_CHANNEL_ID = [1446865411814588426111111]  # Thay bằng ID kênh của bạn
 
 # ===== CẤU HÌNH CALL =====
 # Danh sách ID kênh được phép sử dụng chức năng gọi điện
