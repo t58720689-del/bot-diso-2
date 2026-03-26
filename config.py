@@ -65,6 +65,12 @@ DONATE_COOLDOWN = 3600  # Thời gian chờ giữa 2 lần gửi donate (giây, 
 # Chỉnh lịch & nội dung tin nhắn trong cogs/daily.py
 SCHEDULED_CHANNEL_ID = [1439553447384060047,1486411439907274884]  # Thay bằng ID kênh của bạn
 
+# Role được dùng /recap và !recap — ID role (Developer Mode: chuột phải vai trò → Copy Role ID)
+# Lưu ý: phải là số nguyên Discord (snowflake), KHÔNG để placeholder 123/321
+RECAP_ALLOWED_ROLE_IDS = [
+    1469581542841122918,
+    1185158470958333953,
+]
 
 
 
