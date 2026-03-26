@@ -1,6 +1,6 @@
 import os
 from dotenv import load_dotenv
-#1486759905431130175,1486411439907274884
+#1486411439907274884,1446866616452386856
 load_dotenv()
 
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -63,27 +63,16 @@ DONATE_COOLDOWN = 3600  # Thời gian chờ giữa 2 lần gửi donate (giây, 
 # ===== CẤU HÌNH TIN NHẮN THEO GIỜ =====
 # ID kênh (hoặc danh sách ID) nhận tin nhắn tự động theo lịch
 # Chỉnh lịch & nội dung tin nhắn trong cogs/daily.py
-SCHEDULED_CHANNEL_ID = [1439553447384060047,1446865411814588426]  # Thay bằng ID kênh của bạn
+SCHEDULED_CHANNEL_ID = [1439553447384060047,1486411439907274884]  # Thay bằng ID kênh của bạn
 
-# ===== CẤU HÌNH GIÁ XĂNG =====
-# ID kênh để gửi thông báo giá xăng hàng ngày lúc 10h sáng GMT+7
-FUEL_CHANNEL_ID = [1446865411814588426111111]  # Thay bằng ID kênh của bạn
 
-# ===== CẤU HÌNH CALL =====
-# Danh sách ID kênh được phép sử dụng chức năng gọi điện
 
-CALL_ALLOWED_CHANNELS = [
-    # Thêm ID kênh vào đây
-   1446865411814588426
+
 
 
 
 ]
 
-# ===== CẤU HÌNH PHOTOBOOTH =====
-# Role ID mặc định cho lệnh !chuphinh / /chuphinh 1472557179985727710 1446865411814588426
-# Thay 123 bằng ID role thực tế của bạn
-PHOTOBOOTH_ROLE_ID = 1474535485488631911
 
 
 
