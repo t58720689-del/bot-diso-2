@@ -56,6 +56,22 @@ def _has_recap_role(member: discord.Member) -> bool:
     return any(role.id in allowed for role in member.roles)
 
 
+async def _resolve_recap_channel(
+    guild: discord.Guild, channel_id: int
+) -> discord.TextChannel | discord.Thread | None:
+    """Kênh thật trong cache/API — tránh proxy từ interaction khiến history/followup lạ."""
+    ch = guild.get_channel(channel_id)
+    if isinstance(ch, (discord.TextChannel, discord.Thread)):
+        return ch
+    try:
+        ch = await guild.fetch_channel(channel_id)
+    except (discord.NotFound, discord.HTTPException):
+        return None
+    if isinstance(ch, (discord.TextChannel, discord.Thread)):
+        return ch
+    return None
+
+
 async def _guild_member(
     guild: discord.Guild, user: discord.abc.User
 ) -> discord.Member | None:
@@ -205,33 +221,69 @@ class Recap(commands.Cog):
         if member is None:
             member = await _guild_member(interaction.guild, interaction.user)
         if member is None:
-            await interaction.followup.send(
-                "Không lấy được thông tin thành viên (role). Thử lại sau hoặc kiểm tra bot có quyền xem thành viên.",
-                ephemeral=True,
+            await interaction.edit_original_response(
+                content=(
+                    "Không lấy được thông tin thành viên (role). Thử lại sau hoặc kiểm tra bot có quyền xem thành viên."
+                ),
+                embed=None,
+                allowed_mentions=_NO_MENTIONS,
             )
             return
 
+        cid = interaction.channel_id
+        if cid is None:
+            await interaction.edit_original_response(
+                content="Không xác định được kênh.",
+                embed=None,
+                allowed_mentions=_NO_MENTIONS,
+            )
+            return
+
+        recap_channel = await _resolve_recap_channel(interaction.guild, cid)
+        if recap_channel is None:
+            await interaction.edit_original_response(
+                content="Không mở được kênh text/thread để đọc lịch sử.",
+                embed=None,
+                allowed_mentions=_NO_MENTIONS,
+            )
+            return
+
+        # Dùng edit_original_response thay vì followup: thay tin "đang suy nghĩ" trực tiếp;
+        # followup webhook đôi khi treo/lỗi trong khi prefix (!recap) vẫn chạy bình thường.
         async def respond_embed(e: discord.Embed):
-            await interaction.followup.send(
-                embed=e, ephemeral=True, allowed_mentions=_NO_MENTIONS
+            await interaction.edit_original_response(
+                content=None,
+                embed=e,
+                allowed_mentions=_NO_MENTIONS,
             )
 
         async def respond_text(t: str):
-            await interaction.followup.send(t, ephemeral=True, allowed_mentions=_NO_MENTIONS)
+            await interaction.edit_original_response(
+                content=t,
+                embed=None,
+                allowed_mentions=_NO_MENTIONS,
+            )
 
         try:
             await self._run_recap(
-                interaction.channel, member, lim, respond_embed, respond_text
+                recap_channel, member, lim, respond_embed, respond_text
             )
         except Exception:
             logger.exception("[RECAP] Lỗi không mong đợi (slash)")
             try:
-                await interaction.followup.send(
-                    "Đã xảy ra lỗi khi tóm tắt. Thử lại sau hoặc kiểm tra log bot.",
-                    ephemeral=True,
+                await interaction.edit_original_response(
+                    content="Đã xảy ra lỗi khi tóm tắt. Thử lại sau hoặc kiểm tra log bot.",
+                    embed=None,
+                    allowed_mentions=_NO_MENTIONS,
                 )
             except discord.HTTPException:
-                pass
+                try:
+                    await interaction.followup.send(
+                        "Đã xảy ra lỗi khi tóm tắt. Thử lại sau hoặc kiểm tra log bot.",
+                        ephemeral=True,
+                    )
+                except discord.HTTPException:
+                    pass
 
     @commands.command(name="recap", aliases=["tomtatchat"])
     async def recap_prefix(self, ctx: commands.Context, soluong: int = DEFAULT_LIMIT):
