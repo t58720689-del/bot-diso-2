@@ -1,3 +1,4 @@
+import asyncio
 import discord
 from discord.ext import commands
 from discord import app_commands
@@ -16,6 +17,9 @@ DEFAULT_LIMIT = 40
 MIN_LIMIT = 5
 MAX_LIMIT = 150
 MAX_TRANSCRIPT_CHARS = 28000
+
+# Không timeout → request Groq có thể treo vô hạn, slash vẫn "đang suy nghĩ...".
+_GROQ_HTTP_TIMEOUT = aiohttp.ClientTimeout(total=90, connect=20, sock_read=75)
 
 SUMMARY_SYSTEM_PROMPT = """Bạn tóm tắt đoạn hội thoại Discord bằng tiếng Việt.
 - Ngắn gọn, rõ ràng: ý chính, quyết định, câu hỏi–trả lời quan trọng.
@@ -119,7 +123,7 @@ async def _groq_summarize(transcript: str) -> str | None:
     }
 
     try:
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(timeout=_GROQ_HTTP_TIMEOUT) as session:
             async with session.post(GROQ_API_URL, headers=headers, json=payload) as resp:
                 if resp.status != 200:
                     err = await resp.text()
@@ -127,6 +131,9 @@ async def _groq_summarize(transcript: str) -> str | None:
                     return None
                 data = await resp.json()
                 return data["choices"][0]["message"]["content"].strip()
+    except asyncio.TimeoutError as e:
+        logger.error(f"[RECAP] Groq hết thời gian chờ (timeout): {e}")
+        return None
     except Exception as e:
         logger.error(f"[RECAP] Lỗi Groq: {e}")
         return None
@@ -212,7 +219,19 @@ class Recap(commands.Cog):
         async def respond_text(t: str):
             await interaction.followup.send(t, ephemeral=True, allowed_mentions=_NO_MENTIONS)
 
-        await self._run_recap(interaction.channel, member, lim, respond_embed, respond_text)
+        try:
+            await self._run_recap(
+                interaction.channel, member, lim, respond_embed, respond_text
+            )
+        except Exception:
+            logger.exception("[RECAP] Lỗi không mong đợi (slash)")
+            try:
+                await interaction.followup.send(
+                    "Đã xảy ra lỗi khi tóm tắt. Thử lại sau hoặc kiểm tra log bot.",
+                    ephemeral=True,
+                )
+            except discord.HTTPException:
+                pass
 
     @commands.command(name="recap", aliases=["tomtatchat"])
     async def recap_prefix(self, ctx: commands.Context, soluong: int = DEFAULT_LIMIT):
