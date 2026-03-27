@@ -12,7 +12,8 @@ _MESSAGEABLE_GUILD = (discord.TextChannel, discord.Thread, discord.VoiceChannel)
 # --- Cấu hình — chỉnh trực tiếp trong file này ---
 # Khớp không phân biệt hoa thường (substring trong tin + chữ trong embed). List rỗng = tắt lọc.
 BANNED_WORDS: list[str] = [
-    "testbot11","nhìn lại mình đi","anh em out hết còn gì trong tay","BHHAHAHA","yoooooo watch the girl in vc BHHAHAHA","yoooooo watch","bot ngu","bot dốt","discordapp.com/invite/","bot đần","chí momo","chó mimi"
+    "testbot11","nhìn lại mình đi","anh em out hết còn gì trong tay","BHHAHAHA","yoooooo watch the girl in vc BHHAHAHA","yoooooo watch","bot ngu","bot dốt","discordapp.com/invite/","bot đần","chí momo","chó mimi",
+    
    
 ]
 

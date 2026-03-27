@@ -1,107 +1,135 @@
-# Hướng Dẫn Giới Hạn Bot Trong Các Kênh Cụ Thể
+# Hướng Dẫn Sử Dụng Bot Discord
 
-## Cách Lấy Channel ID trong Discord
+## Mục lục
+- [Giải trí](#giải-trí)
+- [Game Quiz & Hát](#game-quiz--hát)
+- [Thời tiết](#thời-tiết)
+- [Đếm ngược / Kỳ thi](#đếm-ngược--kỳ-thi)
+- [Tư vấn](#tư-vấn)
+- [Sự kiện](#sự-kiện)
+- [Hỗ trợ & Gọi Mod](#hỗ-trợ--gọi-mod)
+- [Quản lý (Mod/Admin)](#quản-lý-modadmin)
+- [Tiện ích khác](#tiện-ích-khác)
+- [Tính năng tự động](#tính-năng-tự-động)
 
-1. **Bật Developer Mode**:
-   - Mở Discord → Settings (⚙️)
-   - Vào **Advanced** (Nâng cao)
-   - Bật **Developer Mode** (Chế độ nhà phát triển)
+---
 
-2. **Lấy ID của Channel**:
-   - Click chuột phải vào tên kênh chat
-   - Chọn **Copy ID** (hoặc **Copy Channel ID**)
-   - ID sẽ có dạng số dài, ví dụ: `1234567890123456789`
+## Giải trí
 
-## Cấu Hình Channel Được Phép
+| Lệnh | Mô tả |
+|---|---|
+| `!hello` | Bot chào bạn |
+| `!lovecalc @user1 @user2` | Tính % tình yêu giữa 2 người (aliases: `!love`, `!tinhyeu`) |
 
-Mở file `config.py` và tìm dòng `ALLOWED_CHANNELS`:
+---
 
-```python
-# Danh sách ID các kênh được phép sử dụng bot
-# Thay thế các ID này bằng ID kênh của bạn
-ALLOWED_CHANNELS = [
-    1234567890123456789,  # Thay thế bằng ID channel 1
-    9876543210987654321,  # Thay thế bằng ID channel 2
-    # Thêm ID channel khác tại đây
-]
-```
+## Game Quiz & Hát
 
-### Ví Dụ Cấu Hình:
+| Lệnh | Mô tả |
+|---|---|
+| `!superquiz` | Bắt đầu Super Quiz |
+| `!stopsuperquiz` | Dừng Super Quiz |
+| `!skip` | Bỏ qua câu hỏi hiện tại |
+| `!check` | Xem điểm cá nhân (aliases: `!diem`, `!score`) |
+| `!bxh` | Xem bảng xếp hạng (aliases: `!leaderboard`, `!top`, `!rank`) |
+| `!quizprogress` | Xem tiến độ quiz (aliases: `!progress`, `!tiendo`) |
+| `!khoga` | Xem kho gà / tủ đồ (aliases: `!mykhoga`, `!inventory`, `!tuido`) |
+| `!resetquiz1` | Reset quiz của bản thân |
+| `!time` | Bắt đầu bộ đếm thời gian |
+| `!stoptime` | Dừng bộ đếm thời gian |
+| `!sing` | Chơi game hát cùng bot (alias: `!hat`) |
+| `!stopsing` | Dừng game hát (alias: `!stophat`) |
 
-```python
-ALLOWED_CHANNELS = [
-    1446865411814588426,  # Kênh general
-    1447123456789012345,  # Kênh bot-commands
-    1447987654321098765,  # Kênh game
-]
-```
+---
 
-### Cho Phép Bot Hoạt Động Ở Tất Cả Các Kênh:
+## Thời tiết
 
-Nếu bạn muốn bot hoạt động ở tất cả các kênh, để danh sách rỗng:
+| Lệnh | Mô tả |
+|---|---|
+| `!weather <thành phố>` | Xem thời tiết hiện tại (alias: `!thoitiet`) |
+| `!forecast <thành phố>` | Dự báo thời tiết 5 ngày (alias: `!dubao`) |
+| `!hourly <thành phố>` | Dự báo theo giờ (alias: `!theogio`) |
+| `!alerts <thành phố>` | Cảnh báo thời tiết (alias: `!canhbao`) |
 
-```python
-ALLOWED_CHANNELS = []
-```
+---
 
-## Các Tính Năng Bị Giới Hạn
+## Đếm ngược / Kỳ thi
 
-Khi bạn giới hạn channel, các tính năng sau CHỈ hoạt động trong các channel được chỉ định:
+| Lệnh | Mô tả |
+|---|---|
+| `/remain` | Xem còn bao nhiêu ngày đến kỳ thi |
+| `!remainthpt` | Đếm ngược ngày thi THPT Quốc Gia (aliases: `!countdown`, `!thpt`) |
+| `/remainthpt` | Đếm ngược THPT (slash command) |
 
-### Commands Chat & AI:
-- `!ai` / `!chat` / `!ask` - Chat với AI
-- `!clear` / `!reset` - Xóa lịch sử chat với AI
+---
 
+## Tư vấn
 
-### Commands Game & Quiz:
-- `!quiz` - Bắt đầu quiz trắc nghiệm
-- `!superquiz` - Bắt đầu super quiz (nhiều câu hỏi liên tiếp)
-- `!44stopsuperquiz` - Dừng super quiz
-- `!bxh` / `!leaderboard` / `!top` / `!rank` - Xem bảng xếp hạng
-- `!khoga` / `!mykhoga` / `!inventory` / `!tuido` - Xem khô gà (túi đồ) của bạn
-- `!check` / `!diem` / `!score` - Kiểm tra điểm số của bạn
-- `!quizprogress` / `!progress` / `!tiendo` - Xem tiến độ quiz
-- `!sing` / `!hat` - Bot hát bài hát ngẫu nhiên
-- `!stopsing` / `!stophat` - Dừng hát
+| Lệnh | Mô tả |
+|---|---|
+| `!tuvan` | Hiển thị menu chọn kênh tư vấn (alias: `!tv`) |
+| `/tuvan` | Hiển thị menu tư vấn (slash command) |
 
-### Commands Admin:
-- `!resetquiz1` - Reset câu hỏi quiz đã dùng (admin)
-- `!modresetquiz` - Moderator reset quiz (admin)
+---
 
-### Commands Khác:
-- `!hello` - Chào hỏi đơn giản
+## Sự kiện
 
-### Auto-responses (Tự động phản hồi):
-- Chào hỏi khi có từ: chào, hi, hello, hey...
-- Phản hồi khi nhắc "anh độ"
-- Phản hồi khi có "khô gà1"
-- Phản hồi khi có "xây trường", "xây nhà", "việc tốt anh độ"
-- Phản hồi khi có "uia"
-- Tóm tắt chat tự động
+| Lệnh | Mô tả |
+|---|---|
+| `/sukien` | Xem danh sách sự kiện trong server (có thể lọc theo loại) |
+| `/sukien_chitiet <tên>` | Xem chi tiết một sự kiện cụ thể |
 
-### Các Tính Năng VẪN Hoạt Động Ở Mọi Kênh:
-- Xóa tin nhắn của người bị timeout
-- Xóa tin nhắn chứa từ cấm (chó độ, độ ngu, từ cha...)
+---
 
-## Thông Báo Cho User
+## Hỗ trợ & Gọi Mod
 
-Khi user thử dùng lệnh ở kênh không được phép, bot sẽ hiện thông báo:
+| Lệnh | Mô tả |
+|---|---|
+| `!call 911` | Gọi hỗ trợ khẩn cấp — xem mod đang hoạt động |
+| `/call` | Gọi hỗ trợ khẩn cấp (slash command) |
+| `!recap [số_tin]` | Tóm tắt đoạn chat gần đây (alias: `!tomtatchat`, cần role) |
+| `/recap` | Tóm tắt chat gần đây (slash command, cần role) |
 
-> ⚠️ Bot chỉ hoạt động trong các kênh được chỉ định. Kênh này không được phép sử dụng bot.
+---
 
-(Thông báo sẽ tự động xóa sau 10 giây)
+## Quản lý (Mod/Admin)
 
-## Lưu Ý
+| Lệnh | Quyền cần | Mô tả |
+|---|---|---|
+| `!stop @user [phút]` | Role cụ thể | Timeout thành viên (mặc định 10 phút, tối đa 28 ngày) |
+| `!delete @user [số_lượng]` | Manage Messages + Role | Xóa tin nhắn của người dùng trên toàn server |
+| `!2timeout` | Role cụ thể | Xem lý do timeout |
+| `!setremainch #channel` | Admin | Thêm kênh nhận thông báo THPT |
+| `!removeremainch #channel` | Admin | Xóa kênh nhận thông báo THPT |
+| `!listremainch` | Admin | Liệt kê các kênh nhận thông báo THPT |
+| `!modresetquiz` | Admin | Reset quiz cho toàn server |
 
-- Sau khi thay đổi `config.py`, cần **khởi động lại bot** để áp dụng thay đổi
-- ID channel phải là số nguyên, không có dấu ngoặc kép
-- Có thể thêm nhiều channel ID tùy ý, phân cách bằng dấu phẩy
-- Nếu để `ALLOWED_CHANNELS = []`, bot sẽ hoạt động ở tất cả các kênh như bình thường
+---
 
-## Kiểm Tra Bot
+## Tiện ích khác
 
-Sau khi cấu hình:
+| Lệnh | Mô tả |
+|---|---|
+| `!sysinfo` | Xem cấu hình hệ thống đang chạy bot (aliases: `!system`, `!cauhinh`, `!vga`, `!gpu`) |
+| `!test_donate` | Xem trước tin nhắn donate (alias: `!testdonate`) |
+| `!scheduled_list` | Xem danh sách lịch gửi tin (chỉ owner) |
+| `!test_schedule <index>` | Test gửi tin theo lịch (chỉ owner) |
+| `!testlast` | Test kiểm tra tin nhắn cuối (chỉ owner) |
+| `!forcechecklast` | Ép kiểm tra tin nhắn cuối (chỉ owner) |
 
-1. Khởi động lại bot
-2. Thử dùng lệnh `!hello` ở kênh ĐƯỢC phép → Bot phản hồi
-3. Thử dùng lệnh `!hello` ở kênh KHÔNG được phép → Bot hiện thông báo cảnh báo
+---
+
+## Tính năng tự động
+
+Các tính năng dưới đây hoạt động **tự động**, không cần gõ lệnh:
+
+| Tính năng | Mô tả |
+|---|---|
+| **Lọc từ cấm** | Tự động xóa tin nhắn chứa từ/cụm cấm và timeout người vi phạm |
+| **Kiểm duyệt tục tĩu (AI)** | Tag bot vào tin nhắn hoặc reply — bot dùng AI phân tích và timeout nếu vượt ngưỡng |
+| **Chống spam (AI)** | Tự động phát hiện spam/scam trong kênh được cấu hình, xóa tin + timeout. Quét định kỳ mỗi giờ |
+| **Trigger tự động** | Bot tự reply khi phát hiện cụm từ trigger trong tin nhắn (ví dụ: "ai hỏi") |
+| **Chào thành viên mới** | Tự động gửi hướng dẫn khi có người mới join server |
+| **Tin nhắn buổi sáng** | Gửi tin nhắn tự động lúc 5:30 AM (GMT+7) |
+| **Đếm ngược sự kiện** | Gửi tự động lúc 8:00 AM & 11:00 PM (GMT+7) |
+| **Nhắc thi THPT** | Gửi tự động lúc 7:30 AM & 11:30 PM (GMT+7) |

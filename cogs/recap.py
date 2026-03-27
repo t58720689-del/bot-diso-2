@@ -190,17 +190,19 @@ class Recap(commands.Cog):
 
         lim = max(MIN_LIMIT, min(MAX_LIMIT, soluong))
 
+        # Phải defer trước mọi thao tác có thể chậm (fetch_member, history, Groq),
+        # nếu không Discord hết 3s và báo "Ứng dụng không phản hồi".
+        await interaction.response.defer(ephemeral=True)
+
         member = interaction.member
         if member is None:
             member = await _guild_member(interaction.guild, interaction.user)
         if member is None:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "Không lấy được thông tin thành viên (role). Thử lại sau hoặc kiểm tra bot có quyền xem thành viên.",
                 ephemeral=True,
             )
             return
-
-        await interaction.response.defer(ephemeral=True)
 
         async def respond_embed(e: discord.Embed):
             await interaction.followup.send(
