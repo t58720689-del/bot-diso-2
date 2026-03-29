@@ -79,6 +79,15 @@ class Events(commands.Cog):
             # Thêm các từ timeout khác vào đây
         ]
 
+
+
+
+
+
+
+
+
+
     def _is_timed_out(self, member: discord.Member) -> bool:
         return member.is_timed_out()
 

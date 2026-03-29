@@ -7,6 +7,25 @@ from utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 
+
+def _startup_command_guide_text() -> str:
+    wc_ids = getattr(config, "WORD_CHAIN_CHANNEL_IDS", None) or []
+    wc_line = ", ".join(str(i) for i in wc_ids) if wc_ids else "(chưa cấu hình)"
+    return (
+        "\n"
+        "========== HƯỚNG DẪN LỆNH (mỗi lần khởi động) ==========\n"
+        "Prefix: !\n"
+        "— Nối từ tiếng Anh — chỉ trong kênh WORD_CHAIN_CHANNEL_IDS (config.py):\n"
+        "    !wcstart [từ]     Bắt đầu phiên (có thể bỏ trống, gửi từ sau)\n"
+        "    !wcstop          Kết thúc phiên\n"
+        "    !wcstatus        Từ hiện tại / chữ cần nối\n"
+        f"    Kênh: {wc_line}\n"
+        "— Chủ bot: !sync (sync slash) | !cogs (danh sách cog đã load)\n"
+        "— Còn lệnh / và ! khác theo từng module — thử trên server hoặc xem cogs/.\n"
+        "========================================================\n"
+    )
+
+
 class MixiBot(commands.Bot):
     def __init__(self):
         super().__init__(
@@ -14,6 +33,7 @@ class MixiBot(commands.Bot):
             intents=discord.Intents.all(),
             help_command=None
         )
+        self._logged_startup_guide = False
 
     async def setup_hook(self):
         # Load cogs
@@ -28,6 +48,9 @@ class MixiBot(commands.Bot):
     async def on_ready(self):
         logger.info(f'Logged in as {self.user} (ID: {self.user.id})')
         logger.info('------')
+        if not self._logged_startup_guide:
+            self._logged_startup_guide = True
+            logger.info(_startup_command_guide_text())
 
         # Guild sync tức thì cho tất cả server bot đang có mặt
         for guild in self.guilds:
