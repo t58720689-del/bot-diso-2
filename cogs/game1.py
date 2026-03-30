@@ -59,13 +59,15 @@ def _load_lexicon_from_file() -> set[str] | None:
 
 
 class _Session:
-    __slots__ = ("active", "last_word", "used", "scores")
+    __slots__ = ("active", "last_word", "used", "scores", "players")
 
     def __init__(self):
         self.active = False
         self.last_word: str | None = None
         self.used: set[str] = set()
         self.scores: dict[int, int] = {}
+        # Tập hợp user_id của tất cả người đã gửi tin trong phiên (kể cả sai)
+        self.players: set[int] = set()
 
 
 class Game1(commands.Cog):
@@ -254,6 +256,7 @@ class Game1(commands.Cog):
         s.scores.clear()
         s.last_word = None
         s.active = True
+        s.players.clear()
         await ctx.send(embed=self._build_guide_embed())
         if word:
             w = _parse_single_english_word(word)
@@ -272,6 +275,7 @@ class Game1(commands.Cog):
             s.last_word = w
             s.used.add(w)
             s.scores[ctx.author.id] = s.scores.get(ctx.author.id, 0) + 1
+            s.players.add(ctx.author.id)
             await ctx.send(
                 f"🔤 Phiên mới! Từ đầu: **{w}** — từ tiếp theo phải bắt đầu bằng **`{w[-1]}`**. "
                 f"Trong phiên này **không được lặp lại** từ đã dùng ({len(s.used)} từ). "
@@ -307,6 +311,7 @@ class Game1(commands.Cog):
         s.last_word = None
         s.used.clear()
         s.scores.clear()
+        s.players.clear()
         msg = "⏹️ Đã kết thúc phiên nối từ."
         if board:
             msg = msg + "\n\n" + board
@@ -365,6 +370,9 @@ class Game1(commands.Cog):
         if not s.active:
             return
 
+        # Ghi nhận người chơi ngay khi họ gửi tin trong phiên
+        s.players.add(message.author.id)
+
         if s.last_word is None:
             ok, err = await self._is_valid_english_word(w)
             if not ok:
@@ -418,6 +426,50 @@ class Game1(commands.Cog):
             await message.add_reaction("✅")
         except discord.HTTPException:
             pass
+
+    @commands.Cog.listener()
+    async def on_member_update(self, before: discord.Member, after: discord.Member):
+        """Tự động gỡ timeout cho người chơi bị timeout trong lúc chơi nối từ."""
+        # Chỉ xử lý khi trạng thái timeout thay đổi từ không bị → bị timeout
+        if before.is_timed_out() or not after.is_timed_out():
+            return
+
+        game_channels = _word_chain_channels()
+        if not game_channels:
+            return
+
+        # Tìm kênh game đang active mà người này đã tham gia
+        for ch_id in game_channels:
+            s = self._sessions.get(ch_id)
+            if s is None or not s.active:
+                continue
+            if after.id not in s.players:
+                continue
+
+            # Người này đang chơi trong kênh ch_id và vừa bị timeout → gỡ ngay
+            channel = self.bot.get_channel(ch_id)
+            try:
+                await after.timeout(None, reason="Auto-remove: bị timeout trong lúc chơi nối từ")
+                logger.info(
+                    "[GAME1] Auto-removed timeout for %s (id=%s) in word-chain channel %s",
+                    after.name, after.id, ch_id,
+                )
+                if channel is not None:
+                    try:
+                        await channel.send(
+                            f"🔓 {after.mention} vừa bị timeout nhưng **đang chơi nối từ** nên đã được gỡ tự động. "
+                            "Cẩn thận hơn nhé! 😅",
+                        )
+                    except discord.HTTPException:
+                        pass
+            except discord.Forbidden:
+                logger.warning(
+                    "[GAME1] Missing permission to remove timeout for %s (id=%s)",
+                    after.name, after.id,
+                )
+            except discord.HTTPException as e:
+                logger.error("[GAME1] Failed to remove timeout for %s: %s", after.name, e)
+            break
 
 
 async def setup(bot: commands.Bot):

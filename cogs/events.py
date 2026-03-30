@@ -193,7 +193,7 @@ class Events(commands.Cog):
                 
                 # Gửi thông báo (tùy chọn)
                 await message.channel.send(
-                    f"🚫 {message.author.mention} đã bị timeout 10 ngày do gửi tin nhắn trong server lọc bot! https://cdn.discordapp.com/attachments/1472557179985727710/1478444884934529337/image.png?ex=69a86c98&is=69a71b18&hm=58d7c9be842ec370334e3d108e9702ff9ff3c6ac3e5eed573c87975e5f86b6d9&"
+                    f"🚫 {message.author.mention} đã bị cấm nhắn tin 10 ngày do gửi tin nhắn trong channel lọc bot! CẢNH BÁO⚠️ :  KÊNH NÀY NHẰM MỤC ĐÍCH ĐỂ TỰ ĐỘNG BAN BOT VÀ/HOẶC CÁC TÀI KHOẢN TỰ ĐỘNG. NẾU BẠN NHẮN VÀO KÊNH NÀY SẼ BỊ HỆ THỐNG TỰ ĐỘNG BAN NGAY LẬP TỨC.Vui lòng rời khỏi đây nếu không biết bạn đang làm gì. https://cdn.discordapp.com/attachments/1472557179985727710/1478444884934529337/image.png?ex=69a86c98&is=69a71b18&hm=58d7c9be842ec370334e3d108e9702ff9ff3c6ac3e5eed573c87975e5f86b6d9&"
                 )
                     
             except discord.Forbidden:
