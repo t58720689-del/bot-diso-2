@@ -15,7 +15,7 @@ from utils.logger import setup_logger
 logger = setup_logger(__name__)
 
 _WORDS_PATH = Path(__file__).resolve().parent.parent / "data" / "words.txt"
-_CHANNEL_ID = 1488565684718928185
+_CHANNEL_ID = 1488571911192711178
 _NON_WORD = re.compile(r"[0-9@#$%^&*()+={}\[\]|\\<>/~`\"_]")
 _SKIP_MIN_PLAYERS = 5
 _STOP_MIN_PLAYERS = 5

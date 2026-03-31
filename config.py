@@ -76,7 +76,7 @@ RECAP_ALLOWED_ROLE_IDS = [
 ]
 
 # Kênh chơi nối từ tiếng Anh (cogs/game1.py). Dùng Copy Channel ID (số snowflake), không phải số thứ tự trên UI.
-WORD_CHAIN_CHANNEL_IDS = [1488565684718928185]
+WORD_CHAIN_CHANNEL_IDS = [1488571810978201723]
 
 # True = chỉ chấp nhận từ có trong từ điển. Nếu có file data/word_chain_words.txt (mỗi dòng một từ) thì dùng file;
 # không có file thì gọi API dictionaryapi.dev (có cache trong RAM).
