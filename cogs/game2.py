@@ -5,7 +5,6 @@ import random
 import re
 from pathlib import Path
 # Game 2: Nối từ tiếng Việt
-import certifi
 import discord
 from discord.ext import commands
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -16,7 +15,7 @@ from utils.logger import setup_logger
 logger = setup_logger(__name__)
 
 _WORDS_PATH = Path(__file__).resolve().parent.parent / "data" / "words.txt"
-_CHANNEL_ID = 1488553449824976998
+_CHANNEL_ID = 1488565684718928185
 _NON_WORD = re.compile(r"[0-9@#$%^&*()+={}\[\]|\\<>/~`\"_]")
 _SKIP_MIN_PLAYERS = 5
 _STOP_MIN_PLAYERS = 5
@@ -86,7 +85,12 @@ class Game2(commands.Cog):
     async def cog_load(self) -> None:
         self._lexicon = _load_lexicon()
         if config.MONGO_URI:
-            self._mongo = AsyncIOMotorClient(config.MONGO_URI, tlsCAFile=certifi.where())
+            self._mongo = AsyncIOMotorClient(
+                config.MONGO_URI,
+                tls=True,
+                tlsAllowInvalidCertificates=True,
+                serverSelectionTimeoutMS=10_000,
+            )
             self._db = self._mongo[config.MONGO_DB_NAME_GAME2]
             await self._db.game2_used_words.create_index(
                 [("channel_id", 1), ("word", 1)], unique=True
