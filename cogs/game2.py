@@ -2,7 +2,7 @@ import json
 import random
 import re
 from pathlib import Path
-
+# Game 2: Nối từ tiếng Việt
 import discord
 from discord.ext import commands
 from motor.motor_asyncio import AsyncIOMotorClient
