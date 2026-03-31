@@ -7,6 +7,9 @@ TOKEN = os.getenv('DISCORD_TOKEN')
 OWNER_ID = os.getenv('OWNER_ID')
 OPENWEATHER_API_KEY = os.getenv('OPENWEATHER_API_KEY', '')
 GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
+MONGO_URI = os.getenv('MONGO_URI', '')
+MONGO_DB_NAME = os.getenv('MONGO_DB_NAME', 'discord_bot')
+MONGO_DB_NAME_GAME2 = os.getenv('MONGO_DB_NAME_GAME2', 'discord_bot_game2')
 
 # Danh sách ID các kênh được phép sử dụng bot
 # Thay thế các ID này bằng ID kênh của bạn
@@ -73,7 +76,7 @@ RECAP_ALLOWED_ROLE_IDS = [
 ]
 
 # Kênh chơi nối từ tiếng Anh (cogs/game1.py). Dùng Copy Channel ID (số snowflake), không phải số thứ tự trên UI.
-WORD_CHAIN_CHANNEL_IDS = [1439553447384060047,1487771775843434538]
+WORD_CHAIN_CHANNEL_IDS = [1488553398084173845]
 
 # True = chỉ chấp nhận từ có trong từ điển. Nếu có file data/word_chain_words.txt (mỗi dòng một từ) thì dùng file;
 # không có file thì gọi API dictionaryapi.dev (có cache trong RAM).

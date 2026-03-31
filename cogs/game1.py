@@ -300,8 +300,18 @@ class Game1(commands.Cog):
         if ctx.channel.id not in _word_chain_channels():
             return
         s = self._session(ctx.channel.id)
+        if not s.active:
+            await ctx.send("Chưa có phiên đang chơi.", delete_after=10)
+            return
+        if len(s.players) < 5:
+            await ctx.send(
+                f"⚠️ Cần ít nhất **5 người chơi** mới được kết thúc phiên. "
+                f"Hiện tại mới có **{len(s.players)}/5** người tham gia.",
+                delete_after=15,
+            )
+            return
         board = None
-        if s.active and s.scores:
+        if s.scores:
             board = self._format_session_leaderboard(
                 ctx.guild,
                 s,
