@@ -6,7 +6,7 @@ import asyncio
 class LastMem(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.target_channel_id = 1446865411814588426  # Kênh cần theo dõi
+        self.target_channel_id = 1446866616452386856  # Kênh cần theo dõi
         self.last_message_user = None
         self.last_message_time = None
         self.tz_vn = timezone(timedelta(hours=7))  # Múi giờ Việt Nam UTC+7
@@ -26,7 +26,7 @@ class LastMem(commands.Cog):
             self.last_message_user = message.author
             self.last_message_time = datetime.now(self.tz_vn)
     
-    @tasks.loop(time=time(hour=01, minute=00, second=00))  # Chạy vào 01:00:00 mỗi ngày
+    @tasks.loop(time=time(hour=23, minute=59, second=59))  # Chạy vào 01:00:00 mỗi ngày
     async def check_end_of_day(self):
         """Kiểm tra và thông báo người chat cuối cùng trong ngày"""
         if self.last_message_user is None:
