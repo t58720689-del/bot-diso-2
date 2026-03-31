@@ -6,6 +6,7 @@ from urllib.parse import quote
 import aiohttp
 import discord
 from discord.ext import commands
+from motor.motor_asyncio import AsyncIOMotorClient
 
 import config
 from utils.logger import setup_logger
@@ -58,27 +59,16 @@ def _load_lexicon_from_file() -> set[str] | None:
     return words
 
 
-class _Session:
-    __slots__ = ("active", "last_word", "used", "scores", "players")
-
-    def __init__(self):
-        self.active = False
-        self.last_word: str | None = None
-        self.used: set[str] = set()
-        self.scores: dict[int, int] = {}
-        # Tập hợp user_id của tất cả người đã gửi tin trong phiên (kể cả sai)
-        self.players: set[int] = set()
-
-
 class Game1(commands.Cog):
     """Nối từ tiếng Anh: chữ đầu = chữ cuối từ trước; không lặp từ; có thể kiểm tra từ điển."""
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self._sessions: dict[int, _Session] = {}
         self._lexicon: set[str] | None = None
         self._dict_cache: dict[str, bool] = {}
         self._http: aiohttp.ClientSession | None = None
+        self._mongo: AsyncIOMotorClient | None = None
+        self._db = None
 
     async def cog_load(self) -> None:
         self._lexicon = _load_lexicon_from_file()
@@ -90,30 +80,114 @@ class Game1(commands.Cog):
             )
             logger.info("Word chain: dictionary via API (no %s)", _LEXICON_PATH.name)
 
+        if config.MONGO_URI:
+            self._mongo = AsyncIOMotorClient(
+                config.MONGO_URI,
+                tls=True,
+                tlsAllowInvalidCertificates=True,
+                serverSelectionTimeoutMS=10_000,
+            )
+            self._db = self._mongo[config.MONGO_DB_NAME]
+            await self._db.game1_sessions.create_index("channel_id", unique=True)
+            await self._db.game1_used_words.create_index(
+                [("channel_id", 1), ("word", 1)], unique=True
+            )
+            await self._db.game1_scores.create_index(
+                [("channel_id", 1), ("user_id", 1)], unique=True
+            )
+            logger.info("[GAME1] MongoDB connected — db=%s", config.MONGO_DB_NAME)
+        else:
+            logger.warning("[GAME1] MONGO_URI not set — data will NOT be persisted")
+
     async def cog_unload(self) -> None:
         if self._http:
             await self._http.close()
             self._http = None
+        if self._mongo:
+            self._mongo.close()
 
-    @commands.Cog.listener()
-    async def on_ready(self):
-        channels = _word_chain_channels()
-        if not channels:
+    # ── MongoDB helpers ───────────────────────────────────────────
+
+    async def _get_session(self, ch: int) -> dict:
+        if self._db is None:
+            return {"channel_id": ch, "active": False, "last_word": None, "players": []}
+        doc = await self._db.game1_sessions.find_one({"channel_id": ch})
+        if doc:
+            return doc
+        default = {"channel_id": ch, "active": False, "last_word": None, "players": []}
+        await self._db.game1_sessions.insert_one(default)
+        return default
+
+    async def _update_session(self, ch: int, **fields) -> None:
+        if self._db is None:
             return
-        embed = self._build_guide_embed()
-        embed.title = "🤖 Bot đã khởi động — Hướng dẫn Nối Từ Tiếng Anh"
-        for ch_id in channels:
-            channel = self.bot.get_channel(ch_id)
-            if channel is not None:
-                try:
-                    await channel.send(embed=embed)
-                except discord.HTTPException:
-                    pass
+        await self._db.game1_sessions.update_one(
+            {"channel_id": ch}, {"$set": fields}, upsert=True
+        )
 
-    def _session(self, channel_id: int) -> _Session:
-        if channel_id not in self._sessions:
-            self._sessions[channel_id] = _Session()
-        return self._sessions[channel_id]
+    async def _reset_session(self, ch: int) -> None:
+        if self._db is None:
+            return
+        await self._db.game1_sessions.update_one(
+            {"channel_id": ch},
+            {"$set": {"active": False, "last_word": None, "players": []}},
+            upsert=True,
+        )
+        await self._db.game1_used_words.delete_many({"channel_id": ch})
+        await self._db.game1_scores.delete_many({"channel_id": ch})
+
+    async def _start_session(self, ch: int) -> None:
+        await self._reset_session(ch)
+        await self._update_session(ch, active=True)
+
+    async def _is_word_used(self, ch: int, word: str) -> bool:
+        if self._db is None:
+            return False
+        return await self._db.game1_used_words.find_one(
+            {"channel_id": ch, "word": word}
+        ) is not None
+
+    async def _add_used_word(self, ch: int, word: str) -> None:
+        if self._db is None:
+            return
+        try:
+            await self._db.game1_used_words.insert_one({"channel_id": ch, "word": word})
+        except Exception:
+            pass
+
+    async def _count_used(self, ch: int) -> int:
+        if self._db is None:
+            return 0
+        return await self._db.game1_used_words.count_documents({"channel_id": ch})
+
+    async def _add_score(self, ch: int, user_id: int) -> None:
+        if self._db is None:
+            return
+        await self._db.game1_scores.update_one(
+            {"channel_id": ch, "user_id": user_id},
+            {"$inc": {"score": 1}},
+            upsert=True,
+        )
+
+    async def _get_scores(self, ch: int) -> list[dict]:
+        if self._db is None:
+            return []
+        cursor = self._db.game1_scores.find({"channel_id": ch}).sort("score", -1)
+        return await cursor.to_list(length=None)
+
+    async def _add_player(self, ch: int, user_id: int) -> None:
+        if self._db is None:
+            return
+        await self._db.game1_sessions.update_one(
+            {"channel_id": ch},
+            {"$addToSet": {"players": user_id}},
+        )
+
+    async def _get_players(self, ch: int) -> list[int]:
+        sess = await self._get_session(ch)
+        return sess.get("players", [])
+
+    # ── Dictionary check ──────────────────────────────────────────
 
     def _trim_dict_cache(self) -> None:
         if len(self._dict_cache) > _DICT_CACHE_MAX:
@@ -156,6 +230,8 @@ class Game1(commands.Cog):
         except aiohttp.ClientError as e:
             logger.warning("Word chain dictionary request failed: %s", e)
             return False, "network"
+
+    # ── Embeds / formatting ───────────────────────────────────────
 
     @staticmethod
     def _build_guide_embed() -> discord.Embed:
@@ -223,21 +299,39 @@ class Game1(commands.Cog):
     def _format_session_leaderboard(
         self,
         guild: discord.Guild | None,
-        s: _Session,
+        scores: list[dict],
         *,
         limit: int = 15,
         title: str = "🏆 **Bảng xếp hạng** (phiên hiện tại)",
     ) -> str:
-        if not s.scores:
+        if not scores:
             return f"{title}\n_Chưa có lượt hợp lệ nào._"
-        ranked = sorted(s.scores.items(), key=lambda x: (-x[1], self._player_display_name(guild, x[0]).lower()))
         lines = [title, ""]
-        for i, (uid, n) in enumerate(ranked[:limit], start=1):
+        for i, doc in enumerate(scores[:limit], start=1):
+            uid = doc["user_id"]
+            n = doc["score"]
             name = self._player_display_name(guild, uid)
             lines.append(f"**{i}.** {name} — **{n}** từ")
-        if len(ranked) > limit:
-            lines.append(f"_… và {len(ranked) - limit} người khác_")
+        if len(scores) > limit:
+            lines.append(f"_… và {len(scores) - limit} người khác_")
         return "\n".join(lines)
+
+    # ── Commands ──────────────────────────────────────────────────
+
+    @commands.Cog.listener()
+    async def on_ready(self):
+        channels = _word_chain_channels()
+        if not channels:
+            return
+        embed = self._build_guide_embed()
+        embed.title = "🤖 Bot đã khởi động — Hướng dẫn Nối Từ Tiếng Anh"
+        for ch_id in channels:
+            channel = self.bot.get_channel(ch_id)
+            if channel is not None:
+                try:
+                    await channel.send(embed=embed)
+                except discord.HTTPException:
+                    pass
 
     @commands.command(name="wchelp", aliases=["wordhelp", "wcguide"])
     async def wchelp(self, ctx: commands.Context):
@@ -251,17 +345,13 @@ class Game1(commands.Cog):
         """Bắt đầu phiên mới. Có thể kèm từ khởi đầu: `!wcstart apple` hoặc chỉ `!wcstart` rồi gửi một từ."""
         if ctx.channel.id not in _word_chain_channels():
             return
-        s = self._session(ctx.channel.id)
-        s.used.clear()
-        s.scores.clear()
-        s.last_word = None
-        s.active = True
-        s.players.clear()
+        ch = ctx.channel.id
+        await self._start_session(ch)
         await ctx.send(embed=self._build_guide_embed())
         if word:
             w = _parse_single_english_word(word)
             if not w:
-                s.active = False
+                await self._update_session(ch, active=False)
                 await ctx.send(
                     "❌ Từ khởi đầu không hợp lệ. Chỉ dùng **một từ** tiếng Anh (chữ cái A–Z), tối thiểu 2 ký tự.",
                     delete_after=15,
@@ -269,16 +359,17 @@ class Game1(commands.Cog):
                 return
             ok, err = await self._is_valid_english_word(w)
             if not ok:
-                s.active = False
+                await self._update_session(ch, active=False)
                 await ctx.send(self._dict_error_message(w, err), delete_after=18)
                 return
-            s.last_word = w
-            s.used.add(w)
-            s.scores[ctx.author.id] = s.scores.get(ctx.author.id, 0) + 1
-            s.players.add(ctx.author.id)
+            await self._update_session(ch, last_word=w)
+            await self._add_used_word(ch, w)
+            await self._add_score(ch, ctx.author.id)
+            await self._add_player(ch, ctx.author.id)
+            used_count = await self._count_used(ch)
             await ctx.send(
                 f"🔤 Phiên mới! Từ đầu: **{w}** — từ tiếp theo phải bắt đầu bằng **`{w[-1]}`**. "
-                f"Trong phiên này **không được lặp lại** từ đã dùng ({len(s.used)} từ). "
+                f"Trong phiên này **không được lặp lại** từ đã dùng ({used_count} từ). "
                 f"Xem điểm: `!wcleaderboard`.",
             )
         else:
@@ -299,29 +390,28 @@ class Game1(commands.Cog):
     async def wcstop(self, ctx: commands.Context):
         if ctx.channel.id not in _word_chain_channels():
             return
-        s = self._session(ctx.channel.id)
-        if not s.active:
+        ch = ctx.channel.id
+        sess = await self._get_session(ch)
+        if not sess.get("active"):
             await ctx.send("Chưa có phiên đang chơi.", delete_after=10)
             return
-        if len(s.players) < 5:
+        players = sess.get("players", [])
+        if len(players) < 5:
             await ctx.send(
                 f"⚠️ Cần ít nhất **5 người chơi** mới được kết thúc phiên. "
-                f"Hiện tại mới có **{len(s.players)}/5** người tham gia.",
+                f"Hiện tại mới có **{len(players)}/5** người tham gia.",
                 delete_after=15,
             )
             return
+        scores = await self._get_scores(ch)
         board = None
-        if s.scores:
+        if scores:
             board = self._format_session_leaderboard(
                 ctx.guild,
-                s,
+                scores,
                 title="🏆 **Kết thúc phiên** — bảng xếp hạng",
             )
-        s.active = False
-        s.last_word = None
-        s.used.clear()
-        s.scores.clear()
-        s.players.clear()
+        await self._reset_session(ch)
         msg = "⏹️ Đã kết thúc phiên nối từ."
         if board:
             msg = msg + "\n\n" + board
@@ -331,19 +421,22 @@ class Game1(commands.Cog):
     async def wcstatus(self, ctx: commands.Context):
         if ctx.channel.id not in _word_chain_channels():
             return
-        s = self._session(ctx.channel.id)
-        if not s.active:
+        ch = ctx.channel.id
+        sess = await self._get_session(ch)
+        if not sess.get("active"):
             await ctx.send("Chưa có phiên đang chơi. Dùng `!wcstart` để bắt đầu.", delete_after=12)
             return
-        if s.last_word is None:
+        last_word = sess.get("last_word")
+        used_count = await self._count_used(ch)
+        if last_word is None:
             await ctx.send(
-                f"Đang chờ **từ đầu tiên**. Đã dùng: {len(s.used)} từ.",
+                f"Đang chờ **từ đầu tiên**. Đã dùng: {used_count} từ.",
                 delete_after=12,
             )
             return
         await ctx.send(
-            f"Từ hiện tại: **{s.last_word}** — từ tiếp theo bắt đầu bằng **`{s.last_word[-1]}`**. "
-            f"Đã dùng **{len(s.used)}** từ (không được lặp). "
+            f"Từ hiện tại: **{last_word}** — từ tiếp theo bắt đầu bằng **`{last_word[-1]}`**. "
+            f"Đã dùng **{used_count}** từ (không được lặp). "
             f"Bảng điểm phiên: `!wcleaderboard`.",
             delete_after=20,
         )
@@ -353,14 +446,16 @@ class Game1(commands.Cog):
         """Bảng xếp hạng theo số từ hợp lệ mỗi người trong phiên nối từ hiện tại."""
         if ctx.channel.id not in _word_chain_channels():
             return
-        s = self._session(ctx.channel.id)
-        if not s.active:
+        ch = ctx.channel.id
+        sess = await self._get_session(ch)
+        if not sess.get("active"):
             await ctx.send(
                 "Chưa có phiên đang chơi. Dùng `!wcstart` để bắt đầu; bảng xếp hạng chỉ tính trong một phiên.",
                 delete_after=15,
             )
             return
-        await ctx.send(self._format_session_leaderboard(ctx.guild, s), delete_after=60)
+        scores = await self._get_scores(ch)
+        await ctx.send(self._format_session_leaderboard(ctx.guild, scores), delete_after=60)
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -376,14 +471,15 @@ class Game1(commands.Cog):
         if w is None:
             return
 
-        s = self._session(message.channel.id)
-        if not s.active:
+        ch = message.channel.id
+        sess = await self._get_session(ch)
+        if not sess.get("active"):
             return
 
-        # Ghi nhận người chơi ngay khi họ gửi tin trong phiên
-        s.players.add(message.author.id)
+        await self._add_player(ch, message.author.id)
 
-        if s.last_word is None:
+        last_word = sess.get("last_word")
+        if last_word is None:
             ok, err = await self._is_valid_english_word(w)
             if not ok:
                 try:
@@ -391,27 +487,27 @@ class Game1(commands.Cog):
                 except discord.HTTPException:
                     pass
                 return
-            s.last_word = w
-            s.used.add(w)
-            s.scores[message.author.id] = s.scores.get(message.author.id, 0) + 1
+            await self._update_session(ch, last_word=w)
+            await self._add_used_word(ch, w)
+            await self._add_score(ch, message.author.id)
             try:
                 await message.add_reaction("✅")
             except discord.HTTPException:
                 pass
             return
 
-        need = s.last_word[-1]
+        need = last_word[-1]
         if w[0] != need:
             try:
                 await message.reply(
-                    f"❌ Từ phải bắt đầu bằng **`{need}`** (theo từ trước: **{s.last_word}**).",
+                    f"❌ Từ phải bắt đầu bằng **`{need}`** (theo từ trước: **{last_word}**).",
                     delete_after=12,
                 )
             except discord.HTTPException:
                 pass
             return
 
-        if w in s.used:
+        if await self._is_word_used(ch, w):
             try:
                 await message.reply(
                     "❌ Từ này **đã được dùng** trong phiên hiện tại. Thử từ khác.",
@@ -429,9 +525,9 @@ class Game1(commands.Cog):
                 pass
             return
 
-        s.used.add(w)
-        s.last_word = w
-        s.scores[message.author.id] = s.scores.get(message.author.id, 0) + 1
+        await self._add_used_word(ch, w)
+        await self._update_session(ch, last_word=w)
+        await self._add_score(ch, message.author.id)
         try:
             await message.add_reaction("✅")
         except discord.HTTPException:
@@ -440,7 +536,6 @@ class Game1(commands.Cog):
     @commands.Cog.listener()
     async def on_member_update(self, before: discord.Member, after: discord.Member):
         """Tự động gỡ timeout cho người chơi bị timeout trong lúc chơi nối từ."""
-        # Chỉ xử lý khi trạng thái timeout thay đổi từ không bị → bị timeout
         if before.is_timed_out() or not after.is_timed_out():
             return
 
@@ -448,15 +543,13 @@ class Game1(commands.Cog):
         if not game_channels:
             return
 
-        # Tìm kênh game đang active mà người này đã tham gia
         for ch_id in game_channels:
-            s = self._sessions.get(ch_id)
-            if s is None or not s.active:
+            sess = await self._get_session(ch_id)
+            if not sess.get("active"):
                 continue
-            if after.id not in s.players:
+            if after.id not in sess.get("players", []):
                 continue
 
-            # Người này đang chơi trong kênh ch_id và vừa bị timeout → gỡ ngay
             channel = self.bot.get_channel(ch_id)
             try:
                 await after.timeout(None, reason="Auto-remove: bị timeout trong lúc chơi nối từ")
