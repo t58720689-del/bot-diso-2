@@ -72,6 +72,7 @@ class Game1(commands.Cog):
         self._db = None
         self._last_active: dict[tuple[int, int], float] = {}
         self._active_grace_sec: float = 30.0
+        self._channel_locks: dict[int, asyncio.Lock] = {}
 
     async def cog_load(self) -> None:
         self._lexicon = _load_lexicon_from_file()
@@ -191,6 +192,13 @@ class Game1(commands.Cog):
     async def _get_players(self, ch: int) -> list[int]:
         sess = await self._get_session(ch)
         return sess.get("players", [])
+
+    def _lock_for(self, channel_id: int) -> asyncio.Lock:
+        lock = self._channel_locks.get(channel_id)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._channel_locks[channel_id] = lock
+        return lock
 
     # ── Milestone notification ────────────────────────────────────
 
@@ -498,14 +506,65 @@ class Game1(commands.Cog):
             return
 
         ch = message.channel.id
-        sess = await self._get_session(ch)
-        if not sess.get("active"):
-            return
 
-        await self._add_player(ch, message.author.id)
+        async with self._lock_for(ch):
+            sess = await self._get_session(ch)
+            if not sess.get("active"):
+                return
 
-        last_word = sess.get("last_word")
-        if last_word is None:
+            await self._add_player(ch, message.author.id)
+
+            last_word = sess.get("last_word")
+            if last_word is None:
+                ok, err = await self._is_valid_english_word(w)
+                if not ok:
+                    try:
+                        await message.reply(self._dict_error_message(w, err), delete_after=15)
+                    except discord.HTTPException:
+                        pass
+                    return
+                if await self._is_word_used(ch, w):
+                    try:
+                        await message.reply(
+                            "❌ Từ này **đã được dùng** trong phiên hiện tại. Thử từ khác.",
+                            delete_after=12,
+                        )
+                    except discord.HTTPException:
+                        pass
+                    return
+                await self._update_session(ch, last_word=w)
+                await self._add_used_word(ch, w)
+                await self._add_score(ch, message.author.id)
+                self._last_active[(ch, message.author.id)] = time.monotonic()
+                used_count = await self._count_used(ch)
+                try:
+                    await message.add_reaction("✅")
+                except discord.HTTPException:
+                    pass
+                await self._check_milestone(message.channel, used_count)
+                return
+
+            need = last_word[-1]
+            if w[0] != need:
+                try:
+                    await message.reply(
+                        f"❌ Từ phải bắt đầu bằng **`{need}`** (theo từ trước: **{last_word}**).",
+                        delete_after=12,
+                    )
+                except discord.HTTPException:
+                    pass
+                return
+
+            if await self._is_word_used(ch, w):
+                try:
+                    await message.reply(
+                        "❌ Từ này **đã được dùng** trong phiên hiện tại. Thử từ khác.",
+                        delete_after=12,
+                    )
+                except discord.HTTPException:
+                    pass
+                return
+
             ok, err = await self._is_valid_english_word(w)
             if not ok:
                 try:
@@ -513,8 +572,9 @@ class Game1(commands.Cog):
                 except discord.HTTPException:
                     pass
                 return
-            await self._update_session(ch, last_word=w)
+
             await self._add_used_word(ch, w)
+            await self._update_session(ch, last_word=w)
             await self._add_score(ch, message.author.id)
             self._last_active[(ch, message.author.id)] = time.monotonic()
             used_count = await self._count_used(ch)
@@ -523,47 +583,6 @@ class Game1(commands.Cog):
             except discord.HTTPException:
                 pass
             await self._check_milestone(message.channel, used_count)
-            return
-
-        need = last_word[-1]
-        if w[0] != need:
-            try:
-                await message.reply(
-                    f"❌ Từ phải bắt đầu bằng **`{need}`** (theo từ trước: **{last_word}**).",
-                    delete_after=12,
-                )
-            except discord.HTTPException:
-                pass
-            return
-
-        if await self._is_word_used(ch, w):
-            try:
-                await message.reply(
-                    "❌ Từ này **đã được dùng** trong phiên hiện tại. Thử từ khác.",
-                    delete_after=12,
-                )
-            except discord.HTTPException:
-                pass
-            return
-
-        ok, err = await self._is_valid_english_word(w)
-        if not ok:
-            try:
-                await message.reply(self._dict_error_message(w, err), delete_after=15)
-            except discord.HTTPException:
-                pass
-            return
-
-        await self._add_used_word(ch, w)
-        await self._update_session(ch, last_word=w)
-        await self._add_score(ch, message.author.id)
-        self._last_active[(ch, message.author.id)] = time.monotonic()
-        used_count = await self._count_used(ch)
-        try:
-            await message.add_reaction("✅")
-        except discord.HTTPException:
-            pass
-        await self._check_milestone(message.channel, used_count)
 
     @commands.Cog.listener()
     async def on_member_update(self, before: discord.Member, after: discord.Member):
