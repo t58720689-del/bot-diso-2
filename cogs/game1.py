@@ -19,6 +19,10 @@ _LEXICON_PATH = Path(__file__).resolve().parent.parent / "data" / "word_chain_wo
 _DICT_CACHE_MAX = 4000
 _API_URL = "https://api.dictionaryapi.dev/api/v2/entries/en/{word}"
 
+#1486759905431130175
+
+
+
 
 def _word_chain_channels():
     ids = getattr(config, "WORD_CHAIN_CHANNEL_IDS", None) or []
@@ -506,7 +510,7 @@ class Game1(commands.Cog):
             return
 
         ch = message.channel.id
-
+#1. lock channel
         async with self._lock_for(ch):
             sess = await self._get_session(ch)
             if not sess.get("active"):
