@@ -26,7 +26,7 @@ class LastMem(commands.Cog):
             self.last_message_user = message.author
             self.last_message_time = datetime.now(self.tz_vn)
     
-    @tasks.loop(time=time(hour=4, minute=59, second=59))  # Chạy vào 01:00:00 mỗi ngày
+    @tasks.loop(time=time(hour=16, minute=59, second=59))  # Chạy vào 01:00:00 mỗi ngày
     async def check_end_of_day(self):
         """Kiểm tra và thông báo người chat cuối cùng trong ngày"""
         if self.last_message_user is None:
