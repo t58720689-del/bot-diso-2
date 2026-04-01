@@ -1,5 +1,6 @@
 import asyncio
 import re
+import time
 from pathlib import Path
 from urllib.parse import quote
 
@@ -69,6 +70,8 @@ class Game1(commands.Cog):
         self._http: aiohttp.ClientSession | None = None
         self._mongo: AsyncIOMotorClient | None = None
         self._db = None
+        self._last_active: dict[tuple[int, int], float] = {}
+        self._active_grace_sec: float = 30.0
 
     async def cog_load(self) -> None:
         self._lexicon = _load_lexicon_from_file()
@@ -134,7 +137,9 @@ class Game1(commands.Cog):
             upsert=True,
         )
         await self._db.game1_used_words.delete_many({"channel_id": ch})
-        await self._db.game1_scores.delete_many({"channel_id": ch})
+        self._last_active = {
+            k: v for k, v in self._last_active.items() if k[0] != ch
+        }
 
     async def _start_session(self, ch: int) -> None:
         await self._reset_session(ch)
@@ -186,6 +191,18 @@ class Game1(commands.Cog):
     async def _get_players(self, ch: int) -> list[int]:
         sess = await self._get_session(ch)
         return sess.get("players", [])
+
+    # ── Milestone notification ────────────────────────────────────
+
+    async def _check_milestone(self, channel: discord.abc.Messageable, count: int) -> None:
+        if count > 0 and count % 100 == 0:
+            try:
+                await channel.send(
+                    f"🎉 **Amazing! {count} words played!**\n"
+                    f"Dùng lệnh `!wcleaderboard` để xem bảng xếp hạng!"
+                )
+            except discord.HTTPException:
+                pass
 
     # ── Dictionary check ──────────────────────────────────────────
 
@@ -346,6 +363,13 @@ class Game1(commands.Cog):
         if ctx.channel.id not in _word_chain_channels():
             return
         ch = ctx.channel.id
+        sess = await self._get_session(ch)
+        if sess.get("active"):
+            await ctx.send(
+                "⚠️ Đang có phiên nối từ! Dùng `!wcstop` để kết thúc trước khi bắt đầu phiên mới.",
+                delete_after=15,
+            )
+            return
         await self._start_session(ch)
         await ctx.send(embed=self._build_guide_embed())
         if word:
@@ -366,12 +390,14 @@ class Game1(commands.Cog):
             await self._add_used_word(ch, w)
             await self._add_score(ch, ctx.author.id)
             await self._add_player(ch, ctx.author.id)
+            self._last_active[(ch, ctx.author.id)] = time.monotonic()
             used_count = await self._count_used(ch)
             await ctx.send(
                 f"🔤 Phiên mới! Từ đầu: **{w}** — từ tiếp theo phải bắt đầu bằng **`{w[-1]}`**. "
                 f"Trong phiên này **không được lặp lại** từ đã dùng ({used_count} từ). "
                 f"Xem điểm: `!wcleaderboard`.",
             )
+            await self._check_milestone(ctx.channel, used_count)
         else:
             hint = ""
             if _dictionary_check_enabled():
@@ -490,10 +516,13 @@ class Game1(commands.Cog):
             await self._update_session(ch, last_word=w)
             await self._add_used_word(ch, w)
             await self._add_score(ch, message.author.id)
+            self._last_active[(ch, message.author.id)] = time.monotonic()
+            used_count = await self._count_used(ch)
             try:
                 await message.add_reaction("✅")
             except discord.HTTPException:
                 pass
+            await self._check_milestone(message.channel, used_count)
             return
 
         need = last_word[-1]
@@ -528,10 +557,13 @@ class Game1(commands.Cog):
         await self._add_used_word(ch, w)
         await self._update_session(ch, last_word=w)
         await self._add_score(ch, message.author.id)
+        self._last_active[(ch, message.author.id)] = time.monotonic()
+        used_count = await self._count_used(ch)
         try:
             await message.add_reaction("✅")
         except discord.HTTPException:
             pass
+        await self._check_milestone(message.channel, used_count)
 
     @commands.Cog.listener()
     async def on_member_update(self, before: discord.Member, after: discord.Member):
@@ -548,6 +580,10 @@ class Game1(commands.Cog):
             if not sess.get("active"):
                 continue
             if after.id not in sess.get("players", []):
+                continue
+
+            last_ts = self._last_active.get((ch_id, after.id))
+            if last_ts is None or (time.monotonic() - last_ts) > self._active_grace_sec:
                 continue
 
             channel = self.bot.get_channel(ch_id)

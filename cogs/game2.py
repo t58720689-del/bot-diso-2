@@ -15,7 +15,7 @@ from utils.logger import setup_logger
 logger = setup_logger(__name__)
 
 _WORDS_PATH = Path(__file__).resolve().parent.parent / "data" / "words.txt"
-_CHANNEL_ID = 1488571911192711178
+_CHANNEL_ID = [1488571911192711178,1488565684718928185]
 _NON_WORD = re.compile(r"[0-9@#$%^&*()+={}\[\]|\\<>/~`\"_]")
 _SKIP_MIN_PLAYERS = 5
 _STOP_MIN_PLAYERS = 5
@@ -384,21 +384,22 @@ class Game2(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        ch = self.bot.get_channel(_CHANNEL_ID)
-        if ch is None:
-            return
         embed = self._guide_embed()
         embed.title = "🤖 Bot đã khởi động — Hướng dẫn Nối Từ Tiếng Việt"
-        try:
-            await ch.send(embed=embed)
-        except discord.HTTPException:
-            pass
+        for cid in _CHANNEL_ID:
+            ch = self.bot.get_channel(cid)
+            if ch is None:
+                continue
+            try:
+                await ch.send(embed=embed)
+            except discord.HTTPException:
+                pass
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
         if message.author.bot or not message.guild:
             return
-        if message.channel.id != _CHANNEL_ID:
+        if message.channel.id not in _CHANNEL_ID:
             return
         content = (message.content or "").strip()
         if not content or content.startswith("!"):
@@ -519,16 +520,31 @@ class Game2(commands.Cog):
     @commands.command(name="ntvhelp", aliases=["ntvguide"])
     async def ntvhelp(self, ctx: commands.Context):
         """Xem hướng dẫn chơi nối từ tiếng Việt."""
-        if ctx.channel.id != _CHANNEL_ID:
+        if ctx.channel.id not in _CHANNEL_ID:
             return
         await ctx.send(embed=self._guide_embed(), delete_after=120)
 
     @commands.command(name="ntvstart", aliases=["ntvs", "ntv"])
     async def ntvstart(self, ctx: commands.Context, *, word: str = None):
         """Bắt đầu phiên nối từ tiếng Việt mới. VD: `!ntvstart xin chào`"""
-        if ctx.channel.id != _CHANNEL_ID:
+        if ctx.channel.id not in _CHANNEL_ID:
             return
         ch_id = ctx.channel.id
+
+        sess = await self._get_session(ch_id)
+        is_admin = any(r.id in _ADMIN_ROLE_ID for r in ctx.author.roles)
+        if sess.get("active"):
+            if not is_admin:
+                await ctx.send(
+                    "⚠️ Đang có phiên nối từ đang chơi! "
+                    "Dùng `!ntvstop` để vote kết thúc phiên trước khi bắt đầu phiên mới.",
+                    delete_after=15,
+                )
+                return
+            await ctx.send(
+                "🔄 **Admin** đã reset phiên đang chơi để bắt đầu phiên mới.",
+            )
+
         await self._start_session(ch_id)
         await ctx.send(embed=self._guide_embed())
 
@@ -570,7 +586,7 @@ class Game2(commands.Cog):
     @commands.command(name="ntvstop")
     async def ntvstop(self, ctx: commands.Context):
         """Vote kết thúc phiên nối từ — cần ≥ 5 người dùng lệnh này."""
-        if ctx.channel.id != _CHANNEL_ID:
+        if ctx.channel.id not in _CHANNEL_ID:
             return
         ch_id = ctx.channel.id
         sess = await self._get_session(ch_id)
@@ -610,7 +626,7 @@ class Game2(commands.Cog):
     @commands.command(name="ntvstatus")
     async def ntvstatus(self, ctx: commands.Context):
         """Xem trạng thái phiên nối từ tiếng Việt."""
-        if ctx.channel.id != _CHANNEL_ID:
+        if ctx.channel.id not in _CHANNEL_ID:
             return
         ch_id = ctx.channel.id
         sess = await self._get_session(ch_id)
@@ -637,7 +653,7 @@ class Game2(commands.Cog):
     @commands.command(name="ntvskip")
     async def ntvskip(self, ctx: commands.Context):
         """Vote bỏ qua từ hiện tại — cần ≥ 5 người dùng lệnh này."""
-        if ctx.channel.id != _CHANNEL_ID:
+        if ctx.channel.id not in _CHANNEL_ID:
             return
         ch_id = ctx.channel.id
         sess = await self._get_session(ch_id)
@@ -684,7 +700,7 @@ class Game2(commands.Cog):
     @commands.command(name="ntvleaderboard", aliases=["ntvrank", "ntvtop"])
     async def ntvleaderboard(self, ctx: commands.Context):
         """Bảng xếp hạng phiên nối từ tiếng Việt hiện tại."""
-        if ctx.channel.id != _CHANNEL_ID:
+        if ctx.channel.id not in _CHANNEL_ID:
             return
         ch_id = ctx.channel.id
         sess = await self._get_session(ch_id)
