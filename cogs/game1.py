@@ -77,8 +77,11 @@ class Game1(commands.Cog):
         self._last_active: dict[tuple[int, int], float] = {}
         self._active_grace_sec: float = 30.0
         self._channel_locks: dict[int, asyncio.Lock] = {}
+<<<<<<< HEAD
         # Khi không có MongoDB: lưu từ đã dùng theo channel (mỗi phiên reset khi !wcstart / !wcstop).
         self._used_words_mem: dict[int, set[str]] = {}
+=======
+>>>>>>> 146c575da164f49f7c7817fdafe7437e551c7a5d
 
     async def cog_load(self) -> None:
         self._lexicon = _load_lexicon_from_file()
