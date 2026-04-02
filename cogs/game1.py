@@ -77,6 +77,8 @@ class Game1(commands.Cog):
         self._last_active: dict[tuple[int, int], float] = {}
         self._active_grace_sec: float = 30.0
         self._channel_locks: dict[int, asyncio.Lock] = {}
+        # Khi không có MongoDB: lưu từ đã dùng theo channel (mỗi phiên reset khi !wcstart / !wcstop).
+        self._used_words_mem: dict[int, set[str]] = {}
 
     async def cog_load(self) -> None:
         self._lexicon = _load_lexicon_from_file()
@@ -134,6 +136,10 @@ class Game1(commands.Cog):
         )
 
     async def _reset_session(self, ch: int) -> None:
+        self._used_words_mem.pop(ch, None)
+        self._last_active = {
+            k: v for k, v in self._last_active.items() if k[0] != ch
+        }
         if self._db is None:
             return
         await self._db.game1_sessions.update_one(
@@ -142,15 +148,15 @@ class Game1(commands.Cog):
             upsert=True,
         )
         await self._db.game1_used_words.delete_many({"channel_id": ch})
-        self._last_active = {
-            k: v for k, v in self._last_active.items() if k[0] != ch
-        }
 
     async def _start_session(self, ch: int) -> None:
         await self._reset_session(ch)
         await self._update_session(ch, active=True)
 
     async def _is_word_used(self, ch: int, word: str) -> bool:
+        mem = self._used_words_mem.get(ch)
+        if mem is not None and word in mem:
+            return True
         if self._db is None:
             return False
         return await self._db.game1_used_words.find_one(
@@ -158,6 +164,7 @@ class Game1(commands.Cog):
         ) is not None
 
     async def _add_used_word(self, ch: int, word: str) -> None:
+        self._used_words_mem.setdefault(ch, set()).add(word)
         if self._db is None:
             return
         try:
