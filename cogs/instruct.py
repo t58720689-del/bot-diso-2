@@ -23,7 +23,10 @@ class Instruct(commands.Cog):
             title="Chào mừng bạn mới! 🎉",
             description=(
                 f"Xin chào {member.mention}! 👋\n\n"
-                f"Vui lòng xem hướng dẫn tại đây: {GUIDE_LINK}"
+                f"Vui lòng xem hướng dẫn tại đây: {GUIDE_LINK} \n\n"
+                f"kênh chat chính https://discord.com/channels/1184348724999225355/1486411439907274884 \n\n"
+                f"kenh chat phụ https://discord.com/channels/1184348724999225355/1446866616452386856 \n\n"
+                
             ),
             color=discord.Color.green(),
         )

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import json
 import random
 import re
@@ -482,6 +483,14 @@ class Game2(commands.Cog):
     async def on_member_update(self, before: discord.Member, after: discord.Member):
         if before.is_timed_out() or not after.is_timed_out():
             return
+
+        timeout_until = after.timed_out_until
+        if timeout_until is None:
+            return
+        remaining = timeout_until - discord.utils.utcnow()
+        if remaining > datetime.timedelta(hours=2):
+            return
+
         if self._db is None:
             return
         cursor = self._db.game2_sessions.find({"active": True}, {"channel_id": 1})
@@ -493,10 +502,10 @@ class Game2(commands.Cog):
                 continue
             channel = self.bot.get_channel(ch_id)
             try:
-                await after.timeout(None, reason="Auto-remove: đang chơi nối từ TV")
+                await after.timeout(None, reason="Auto-remove: đang chơi nối từ TV (timeout < 2h)")
                 logger.info(
-                    "[GAME2] Auto-removed timeout for %s (id=%s) in channel %s",
-                    after.name, after.id, ch_id,
+                    "[GAME2] Auto-removed timeout for %s (id=%s) in channel %s (remaining: %s)",
+                    after.name, after.id, ch_id, remaining,
                 )
                 if channel:
                     try:

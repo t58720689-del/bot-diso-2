@@ -9,15 +9,25 @@ logger = setup_logger(__name__)
 
 
 def _startup_command_guide_text() -> str:
-    wc_ids = getattr(config, "WORD_CHAIN_CHANNEL_IDS", None) or []
-    wc_line = ", ".join(str(i) for i in wc_ids) if wc_ids else "(chưa cấu hình)"
+    try:
+        from cogs.game1 import WORD_CHAIN_CHANNEL_IDS as wc_ids
+        from cogs.game1 import WCSTOP_VOTES_REQUIRED as wc_stop_votes
+    except Exception:
+        wc_ids = []
+        wc_stop_votes = 4
+    wc_line = ", ".join(str(i) for i in wc_ids) if wc_ids else "(cho phép mọi kênh nếu danh sách rỗng)"
     return (
         "\n"
         "========== HƯỚNG DẪN LỆNH (mỗi lần khởi động) ==========\n"
         "Prefix: !\n"
-        "— Nối từ tiếng Anh — chỉ trong kênh WORD_CHAIN_CHANNEL_IDS (config.py):\n"
-        "    !wcstart [từ]     Bắt đầu phiên (có thể bỏ trống, gửi từ sau)\n"
-        "    !wcstop          Kết thúc phiên\n"
+        "— Nối từ tiếng Anh — kênh: cogs/game1.py → WORD_CHAIN_CHANNEL_IDS:\n"
+        "    !wcstart [từ]    Mở phiên (1 lần/phiên; cần !wcstop trước khi mở lại)\n"
+        f"    !wcstop          Vote dừng phiên — cần {wc_stop_votes} người\n"
+        "    (một từ thường trong kênh) Nhập từ khi phiên mở\n"
+        "    !wchint          Gợi ý từ tiếp\n"
+        "    !wchistory       Từ đã dùng\n"
+        "    !wcscore [@user] Điểm\n"
+        "    !wcleaderboard   Bảng xếp hạng\n"
         "    !wcstatus        Từ hiện tại / chữ cần nối\n"
         f"    Kênh: {wc_line}\n"
         "— Chủ bot: !sync (sync slash) | !cogs (danh sách cog đã load)\n"
