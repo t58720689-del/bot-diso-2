@@ -41,7 +41,7 @@ class Remain(commands.Cog):
             elif days >= 30:
                 color = discord.Color.yellow()
                 status_emoji = "\U0001f7e1"
-                status = "Hy vọng không gặp lại các bạn ở đợt 2!"
+                status = "còn hơn 1 tháng nữa!"
             elif days >= 14:
                 color = discord.Color.orange()
                 status_emoji = "\U0001f7e0"
@@ -49,7 +49,7 @@ class Remain(commands.Cog):
             else:
                 color = discord.Color.red()
                 status_emoji = "\U0001f534"
-                status = "Còn rất ít thời gian rồi, hãy tập trung ôn tập và học kỹ kiến thức trọng tâm nhé!"
+                status = "Còn rất ít thời gian rồi"
 
             embed = discord.Embed(
                 title="\U0001f4c5 Đếm ngược kỳ thi",
@@ -81,7 +81,7 @@ class Remain(commands.Cog):
                     f"**{event_name}**\n"
                     f"\U0001f4c6 Ngay thi: `{date_fmt}`\n\n"
                     f"Kỳ thi đã diễn ra **{abs(days)} ngày** trước.\n"
-                    "Hy vọng không gặp lại mình ở đợt 2! \U0001f389"
+                    "Chúc các bạn may mắn! \U0001f389"
                 ),
                 color=discord.Color.blurple(),
             )
