@@ -1,5 +1,6 @@
 from discord.ext import commands
 from utils.helpers import is_allowed_channel
+import config
 import discord
 import json
 import random
@@ -8,7 +9,7 @@ from pathlib import Path
 import time
 
 # ID kênh được phép dùng !superquiz
-SUPERQUIZ_CHANNEL_ID = [1474535485488631911]  # Thay bằng ID kênh thực tế của bạn
+SUPERQUIZ_CHANNEL_ID = [1490137118859591762]  # Thay bằng ID kênh thực tế của bạn
 
 class Game(commands.Cog):
     def __init__(self, bot):
@@ -32,10 +33,59 @@ class Game(commands.Cog):
         self.timer_active = False  # Trạng thái hẹn giờ tự động
         self.timer_task = None  # Task của timer
         self.stoptime_votes = set()  # Lưu user_id đã vote stoptime
+        self._game_startup_announce_sent = False
         self.load_questions()
         self.load_leaderboard()
         self.load_used_questions()
         self.load_songs()
+
+    @commands.Cog.listener()
+    async def on_ready(self):
+        """Một lần sau khi bot kết nối: gửi embed vào (các) kênh được dùng `!superquiz` — SUPERQUIZ_CHANNEL_ID."""
+        if self._game_startup_announce_sent:
+            return
+        self._game_startup_announce_sent = True
+
+        cmd_lines = []
+        for cmd in sorted(self.get_commands(), key=lambda c: c.name):
+            if cmd.aliases:
+                als = ", ".join(f"`!{a}`" for a in sorted(cmd.aliases))
+                cmd_lines.append(f"`!{cmd.name}` (alias: {als})")
+            else:
+                cmd_lines.append(f"`!{cmd.name}`")
+        commands_block = "\n".join(cmd_lines)
+
+        if config.ALLOWED_CHANNELS:
+            allowed_txt = " ".join(f"<#{cid}>" for cid in config.ALLOWED_CHANNELS)
+            channels_part = f"**Kênh được dùng lệnh game** "
+        else:
+            channels_part = "**Kênh lệnh game:** mọi kênh — `ALLOWED_CHANNELS` đang để trống."
+
+        sq_txt = " ".join(f"<#{cid}>" for cid in SUPERQUIZ_CHANNEL_ID)
+        sq_part = f"**Kênh được `!superquiz`:**\n{sq_txt}"
+
+        description = f"{channels_part}\n\n{sq_part}\n\n**Lệnh cog game:**\n{commands_block}"
+        if len(description) > 4096:
+            description = description[:4093] + "..."
+
+        embed = discord.Embed(
+            title="Game cog — bot đã sẵn sàng",
+            description=description,
+            color=discord.Color.blurple(),
+        )
+
+        for cid in SUPERQUIZ_CHANNEL_ID:
+            ch = self.bot.get_channel(cid)
+            if ch is None or not isinstance(ch, discord.abc.Messageable):
+                continue
+            guild = getattr(ch, "guild", None)
+            if guild is not None and guild.me and hasattr(ch, "permissions_for"):
+                if not ch.permissions_for(guild.me).send_messages:
+                    continue
+            try:
+                await ch.send(embed=embed)
+            except discord.HTTPException:
+                continue
     
     def load_leaderboard(self):
         """Load bảng xếp hạng từ file JSON"""
@@ -155,7 +205,7 @@ class Game(commands.Cog):
         self.save_used_questions()
         print("🔄 Đã reset tiến trình quiz")
     
-    @commands.command(name='11111111111quiz')
+    @commands.command(name='quiz')
     @is_allowed_channel()
     async def quiz(self, ctx):
         """Bắt đầu một câu hỏi quiz. Trả lời đúng nhận khô gà!"""
@@ -759,7 +809,7 @@ class Game(commands.Cog):
         
         await ctx.send(embed=embed)
     
-    @commands.command(name='resetquiz1')
+    @commands.command(name='resetquiz')
     @is_allowed_channel()
     async def reset_quiz(self, ctx):
         """Reset tiến trình quiz để bắt đầu lại từ đầu (chỉ khi đã hoàn thành 100 câu)"""
