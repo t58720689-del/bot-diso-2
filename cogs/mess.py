@@ -13,8 +13,9 @@ GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_MODEL = "llama-3.3-70b-versatile"
 
 TOXICITY_THRESHOLD = 70
-TIMEOUT_HOURS = 8
-
+TIMEOUT_HOURS = 36
+TIMEOUT_DELETE_RECENT_MESSAGES = 10
+#1231
 SYSTEM_PROMPT = """Bạn là hệ thống kiểm duyệt nội dung tiếng Việt. Nhiệm vụ của bạn là phân tích tin nhắn và đánh giá mức độ tục tĩu, xúc phạm, thù ghét.
 
 Quy tắc chấm điểm (0-100):
@@ -209,6 +210,26 @@ class MessageModerator(commands.Cog):
             except discord.NotFound:
                 pass
 
+    async def _delete_recent_messages_from_user(
+        self, channel: discord.abc.Messageable, user_id: int, limit: int = TIMEOUT_DELETE_RECENT_MESSAGES
+    ) -> int:
+        """Xóa tối đa `limit` tin nhắn gần nhất của user trong kênh (từ mới đến cũ)."""
+        to_delete: list[discord.Message] = []
+        async for msg in channel.history(limit=200):
+            if msg.author.id == user_id:
+                to_delete.append(msg)
+                if len(to_delete) >= limit:
+                    break
+
+        deleted = 0
+        for msg in to_delete:
+            try:
+                await msg.delete()
+                deleted += 1
+            except (discord.Forbidden, discord.NotFound, discord.HTTPException):
+                pass
+        return deleted
+
     async def _timeout_user(self, trigger_msg: discord.Message, toxic_msg: discord.Message, score: int, reason: str):
         """Timeout người dùng có tin nhắn tục tĩu."""
         member = toxic_msg.author
@@ -242,6 +263,8 @@ class MessageModerator(commands.Cog):
                 reason=f"[Auto-mod] Tục tĩu/xúc phạm (score: {score}/100) - {reason}",
             )
 
+            deleted_msgs = await self._delete_recent_messages_from_user(toxic_msg.channel, member.id)
+
             embed = discord.Embed(
                 title="Đã timeout người dùng vi phạm",
                 description=(
@@ -249,7 +272,8 @@ class MessageModerator(commands.Cog):
                     f"**Tin nhắn:**\n> {toxic_msg.content[:500]}\n\n"
                     f"Điểm tục tĩu: **{score}/100**\n"
                     f"Lý do: {reason}\n"
-                    f"Thời gian timeout: **{TIMEOUT_HOURS} giờ**"
+                    f"Thời gian timeout: **{TIMEOUT_HOURS} giờ**\n"
+                    f"Đã xóa **{deleted_msgs}** tin nhắn gần nhất của người này trong kênh (tối đa {TIMEOUT_DELETE_RECENT_MESSAGES})."
                 ),
                 color=discord.Color.red(),
             )
