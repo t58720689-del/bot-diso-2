@@ -75,7 +75,7 @@ class Events(commands.Cog):
         # Dictionary chứa các từ bị timeout 10 ngày (khác với banned_phrases)11
         # Thêm các từ cần timeout vào đây
         self.timeout_phrases = [
-            "testbot11","nhìn lại mình đi","anh em out hết còn gì trong tay","BHHAHAHA","yoooooo watch the girl in vc BHHAHAHA","yoooooo watch","bot ngu","bot dốt","discordapp.com/invite/","viet69","pornhub","xnxx","XAMVN","xhamsster","xhamster","xvideos",
+            
             # Thêm các từ timeout khác vào đây
         ]
 
