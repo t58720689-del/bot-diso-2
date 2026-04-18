@@ -22,7 +22,7 @@ ALLOWED_CHANNELS = [
 # Server để lọc bot (tài khoản bị xâm nhập)
 # Thay thế bằng ID server của bạn
 
-BOT_FILTER_CHANNELS = [1411448689192603669]  # Thay bằng ID kênh thực
+BOT_FILTER_CHANNELS = [908]  # Thay bằng ID kênh thực
 
 # ID kênh để gửi tin nhắn hàng ngày lúc 5h sáng GMT+0 
 DAILY_MESSAGE_CHANNEL_ID = 1486411439907274884  # Thay bằng ID kênh của bạn
