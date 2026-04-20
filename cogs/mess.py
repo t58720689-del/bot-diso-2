@@ -12,17 +12,17 @@ logger = setup_logger(__name__)
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_MODEL = "llama-3.3-70b-versatile"
 
-TOXICITY_THRESHOLD = 70
-TIMEOUT_HOURS = 36
-TIMEOUT_DELETE_RECENT_MESSAGES = 10
+TOXICITY_THRESHOLD = 90
+TIMEOUT_HOURS = 3
+TIMEOUT_DELETE_RECENT_MESSAGES = 5
 #1231
 SYSTEM_PROMPT = """Bạn là hệ thống kiểm duyệt nội dung tiếng Việt. Nhiệm vụ của bạn là phân tích tin nhắn và đánh giá mức độ tục tĩu, xúc phạm, thù ghét.
 
 Quy tắc chấm điểm (0-100):
 - 0-30: Bình thường, không có vấn đề
 - 31-50: Hơi thô nhưng chấp nhận được
-- 51-75: Tục tĩu hoặc xúc phạm ở mức trung bình, gửi các liên kết sex như viet69 pornhub, pornhub, xnxx, etc.
-- 76-100: Rất tục tĩu, xúc phạm nặng, thù ghét, đe dọa, bị hack nick discord (spam kênh discord.gg), tin nhắn kiểu Yoo check this out discordapp.com/invite/perfect-girls ( người dùng bị hack nên đi spam kênh),gửi các liên kết sex như viet69 pornhub, pornhub, xnxx, XAMVN,etc..
+- 51-89: Tục tĩu hoặc xúc phạm ở mức trung bình, gửi các liên kết sex như viet69 pornhub, pornhub, xnxx, etc.
+- 90-100: Rất tục tĩu, xúc phạm nặng, thù ghét, đe dọa, bị hack nick discord (spam kênh discord.gg), tin nhắn kiểu Yoo check this out discordapp.com/invite/perfect-girls ( người dùng bị hack nên đi spam kênh),gửi các liên kết sex như viet69 pornhub, pornhub, xnxx, XAMVN,etc, xúc phạm bot với những từ như bot ngu, bot dốt...
 
 Lưu ý:
 - Phân tích cả tiếng Việt không dấu, viết tắt, teencode
