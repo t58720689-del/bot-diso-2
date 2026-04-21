@@ -63,7 +63,7 @@ def _build_embed() -> discord.Embed:
     desc, color = _format_delta(target, now)
 
     embed = discord.Embed(
-        title="Đếm ngược công bố điểm thi ĐGNL đợt 1",
+        title="Đếm ngược công bố điểm thi ĐGNL đợt 2",
         description=(
             f"**Thời điểm dự kiến (GMT+7):** `{date_fmt}`\n\n"
             f"{desc}"
