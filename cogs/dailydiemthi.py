@@ -10,10 +10,10 @@ GMT7 = timezone(timedelta(hours=7))
 
 # --- Cấu hình (chỉnh trong file này) ---
 # Thời điểm công bố điểm thi ĐGNL đợt 1 (theo thông báo chính thức), múi GMT+7
-DIEM_DGNL_DOT1_AT = datetime(2026, 4, 17, 8, 30, 0, tzinfo=GMT7)
+DIEM_DGNL_DOT1_AT = datetime(2026, 6, 6, 8, 30, 0, tzinfo=GMT7)
 
 # Link tra điểm (dán URL đầy đủ khi có, ví dụ "https://...")
-TRA_DIEM_URL = "https://thinangluc.vnuhcm.edu.vn/dgnl/auth/sign-in"
+TRA_DIEM_URL = "https://thinangluc.vnuhcm.edu.vn/dgnl/search-result-exam"
 
 # Kênh nhận tin đếm ngược mỗi ngày
 CHANNEL_IDS = [1486411439907274884, 1488535706954498079,1446866616452386856]
