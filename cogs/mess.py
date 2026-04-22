@@ -16,7 +16,7 @@ TOXICITY_THRESHOLD = 90
 TIMEOUT_HOURS = 3
 TIMEOUT_DELETE_RECENT_MESSAGES = 5
 #1231
-SYSTEM_PROMPT = """Bạn là hệ thống kiểm duyệt nội dung tiếng Việt. Nhiệm vụ của bạn là phân tích tin nhắn và đánh giá mức độ tục tĩu, xúc phạm, thù ghét.
+SYSTEM_PROMPT = """Bạn là hệ thống kiểm duyệt nội dung tiếng Việt. Nhiệm vụ của bạn là phân tích tin nhắn
 
 Quy tắc chấm điểm (0-100):
 - 0-30: Bình thường, không có vấn đề
