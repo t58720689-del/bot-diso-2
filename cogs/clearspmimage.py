@@ -2,6 +2,8 @@
 Quét ảnh (Groq vision): nội dung khiêu dâm hoặc lừa đảo (crypto/c casino giả…).
 - Tự động: kênh AUTO_SCAN_CHANNEL_IDS mỗi khi có tin mới có ảnh.
 - Report: @mention bot (mọi kênh) — chỉ member có một trong REPORT_AUTHOR_ROLE_IDS mới kích hoạt; có thể reply tin cần quét.
+- Sau timeout thành công: ghi data/list.json; xóa tin chứa ảnh vi phạm nếu tin đó nằm trong kênh AUTO_SCAN_CHANNEL_IDS (kênh quét).
+- !list: xem danh sách vi phạm (chỉ role REPORT_AUTHOR_ROLE_IDS).
 """
 
 from __future__ import annotations
@@ -52,6 +54,9 @@ AUTO_SCAN_CHANNEL_IDS: frozenset[int] = frozenset({1411520340508807178})
 # Chỉ member có một trong các role này mới được @mention bot để quét ảnh (mọi kênh)
 REPORT_AUTHOR_ROLE_IDS: frozenset[int] = frozenset({1469581542841122918,
 1472560579007746079,1185158470958333953})
+
+# Danh sách vi phạm ảnh (ghi sau timeout thành công); !list đọc file này
+VIOLATIONS_JSON_PATH = os.path.join("data", "list.json")
 
 
 _GROQ_TIMEOUT = aiohttp.ClientTimeout(total=120, connect=25, sock_read=90)
@@ -126,6 +131,52 @@ def _message_mentions_bot_user(message: discord.Message, bot_user_id: int) -> bo
 
 def _member_has_any_role(member: discord.Member, role_ids: frozenset[int]) -> bool:
     return any(r.id in role_ids for r in member.roles)
+
+
+def _load_violations_from_disk() -> list[dict[str, Any]]:
+    path = VIOLATIONS_JSON_PATH
+    if not os.path.isfile(path):
+        return []
+    try:
+        with open(path, encoding="utf-8") as f:
+            raw = f.read().strip()
+        if not raw:
+            return []
+        data = json.loads(raw)
+        if isinstance(data, list):
+            return [x for x in data if isinstance(x, dict)]
+        if isinstance(data, dict):
+            v = data.get("violations")
+            if isinstance(v, list):
+                return [x for x in v if isinstance(x, dict)]
+    except (json.JSONDecodeError, OSError) as e:
+        _out(f"Không đọc được {path}: {e}", "warning")
+    return []
+
+
+def _save_violations_to_disk(entries: list[dict[str, Any]]) -> None:
+    path = VIOLATIONS_JSON_PATH
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump({"violations": entries}, f, ensure_ascii=False, indent=2)
+
+
+def _append_violation_record_sync(entry: dict[str, Any]) -> list[dict[str, Any]]:
+    """Đọc — thêm entry — ghi (gọi trong thread + lock ở caller)."""
+    current = _load_violations_from_disk()
+    current.append(entry)
+    # Giới hạn kích thước file (giữ mới nhất)
+    max_keep = 500
+    if len(current) > max_keep:
+        current = current[-max_keep:]
+    _save_violations_to_disk(current)
+    return current
+
+
+def _list_cmd_role_check(ctx: commands.Context) -> bool:
+    if not ctx.guild or not isinstance(ctx.author, discord.Member):
+        return False
+    return _member_has_any_role(ctx.author, REPORT_AUTHOR_ROLE_IDS)
 
 
 def _author_has_report_role(message: discord.Message) -> bool:
@@ -310,6 +361,7 @@ class ClearSpamImage(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self._seen: set[int] = set()
+        self._violations_io_lock = asyncio.Lock()
 
     def _should_auto_scan(self, message: discord.Message) -> bool:
         if message.author.bot:
@@ -464,11 +516,87 @@ class ClearSpamImage(commands.Cog):
                 _out(f"Đã timeout member={offender_member.id} đến {until.isoformat()}")
             except discord.Forbidden:
                 _out("Không đủ quyền timeout member.", "warning")
+                return
             except discord.HTTPException as e:
                 _out(f"Timeout thất bại: {e}", "warning")
+                return
+
+            entry: dict[str, Any] = {
+                "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+                "user_id": offender_member.id,
+                "username": str(offender_member),
+                "display_name": getattr(offender_member, "display_name", None) or "",
+                "guild_id": guild.id,
+                "message_id": scan_msg.id,
+                "channel_id": scan_msg.channel.id,
+                "jump_url": scan_msg.jump_url,
+                "violation_type": typ,
+                "reason": reason,
+                "scan_mode": mode,
+                "reporter_id": trigger_message.author.id if mode == "report" else None,
+            }
+            try:
+                async with self._violations_io_lock:
+                    await asyncio.to_thread(_append_violation_record_sync, entry)
+                _out(f"Đã ghi vi phạm vào {VIOLATIONS_JSON_PATH}")
+            except Exception as e:
+                _out(f"Ghi {VIOLATIONS_JSON_PATH} lỗi: {e!r}", "error")
+
+            scan_ch = scan_msg.channel
+            if isinstance(scan_ch, (discord.abc.GuildChannel, discord.Thread)):
+                if _channel_matches_auto_scan(scan_ch):
+                    try:
+                        await scan_msg.delete()
+                        _out(f"Đã xóa tin vi phạm msg={scan_msg.id} (kênh auto-scan)")
+                    except discord.Forbidden:
+                        _out("Không đủ quyền xóa tin vi phạm.", "warning")
+                    except discord.NotFound:
+                        _out("Tin vi phạm đã bị xóa trước đó.", "info")
+                    except discord.HTTPException as e:
+                        _out(f"Xóa tin vi phạm lỗi: {e}", "warning")
 
         async with _typing_or_skip(channel):
             await _do_scan()
+
+    @commands.command(name="list")
+    @commands.check(_list_cmd_role_check)
+    async def violations_list(self, ctx: commands.Context) -> None:
+        """!list — danh sách người vi phạm ảnh (đã timeout), từ data/list.json."""
+        entries = await asyncio.to_thread(_load_violations_from_disk)
+        if not entries:
+            await ctx.send("Chưa có bản ghi vi phạm nào trong `data/list.json`.")
+            return
+        recent = list(reversed(entries))[:25]
+        lines: list[str] = []
+        for i, row in enumerate(recent, start=1):
+            uid = row.get("user_id", "?")
+            un = str(row.get("username", ""))[:80] or str(uid)
+            ts = str(row.get("timestamp_utc", ""))[:19]
+            typ_v = str(row.get("violation_type", ""))[:20]
+            jump = str(row.get("jump_url", ""))[:120]
+            lines.append(f"`{i}.` **{un}** (`{uid}`) — {typ_v} — {ts}\n↳ {jump}")
+        body = "\n\n".join(lines)
+        if len(entries) > 25:
+            body += f"\n\n_(hiển thị 25/{len(entries)} mục mới nhất)_"
+        embed = discord.Embed(
+            title="Danh sách vi phạm ảnh (clearspmimage)",
+            description=body[:4096] or "(trống)",
+            color=discord.Color.orange(),
+        )
+        await ctx.send(embed=embed)
+
+    @violations_list.error
+    async def violations_list_error(
+        self, ctx: commands.Context, error: commands.CommandError
+    ) -> None:
+        if isinstance(error, commands.CheckFailure):
+            await ctx.send(
+                "Bạn không có quyền dùng `!list`. Chỉ thành viên có một trong các role báo cáo/quét ảnh mới xem được."
+            )
+            return
+        if isinstance(error, commands.CommandInvokeError) and error.original:
+            _out(f"!list lỗi: {error.original!r}", "error")
+        raise error
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message) -> None:
