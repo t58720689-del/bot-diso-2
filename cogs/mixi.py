@@ -14,7 +14,7 @@ from discord.ext import commands
 logger = logging.getLogger(__name__)
 
 # Văn bản hiển thị (custom status hoặc Playing).
-STATUS_TEXT = "From Mixi With ❤️"
+STATUS_TEXT = "Bị timeout nhầm nhắn anh, con mod mimi vô dụng lắm"
 
 
 async def apply_mixi_presence(client: discord.Client) -> None:
