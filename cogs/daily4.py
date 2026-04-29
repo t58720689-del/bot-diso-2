@@ -9,7 +9,7 @@ from utils.logger import setup_logger
 logger = setup_logger(__name__)
 
 # Kênh nhận tin nhắn định kỳ (snowflake Discord)
-DOCUMENT_REMINDER_CHANNEL_ID = 1486759905431130175
+DOCUMENT_REMINDER_CHANNEL_ID = 1446866616452386856
 
 
 def _reminder_embed() -> discord.Embed:
