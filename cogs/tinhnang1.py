@@ -17,7 +17,7 @@ CHANNEL_2_LINK = (
     "https://discord.com/channels/1184348724999225355/1444322395803488307"
 )
 # Kênh thứ ba: ID trong tin + gửi tin vào kênh này (đổi 123 thành snowflake thật nếu cần)
-EXTRA_CHANNEL_ID = "1112"
+EXTRA_CHANNEL_ID = "1437324764090859662"
 
 # Các kênh nhận bản tin quảng cáo (cùng nội dung)
 BROADCAST_CHANNEL_IDS = (1446866616452386856, EXTRA_CHANNEL_ID)
