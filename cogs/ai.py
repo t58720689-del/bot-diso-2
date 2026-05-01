@@ -5,6 +5,7 @@ sau đó dùng Groq để đánh giá lời xin gỡ; nếu hợp lệ thì bot 
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 import time
@@ -31,11 +32,17 @@ _KEYWORD_RE = re.compile(
     re.IGNORECASE,
 )
 
-MIN_APPEAL_CONFIDENCE = 72
+MIN_APPEAL_CONFIDENCE = 90
 COOLDOWN_SEC = 86400
 
 # Kênh lắng nghe tin tự nhiên (không dùng lệnh). Để rỗng [] = chỉ dùng !help (mọi kênh).
 APPEAL_CHANNEL_IDS: list[int] = []
+
+# Member có ít nhất một trong các role sau mới dùng được lệnh !help.
+HELP_ALLOWED_ROLE_IDS: tuple[int, ...] = (1241969973086388244, 1482031406468304926)
+
+# Sau khi bot trả lời lệnh !help: xóa tin người dùng + tin bot (cần Manage Messages nếu xóa tin người khác).
+HELP_CMD_DELETE_AFTER_SEC = 10.0
 
 APPEAL_SYSTEM_PROMPT = """Bạn là bộ lọc yêu cầu gỡ communication timeout trên Discord (tiếng Việt và tiếng Anh).
 
@@ -61,6 +68,10 @@ def _channel_matches(message: discord.Message, watch_ids: list[int]) -> bool:
     if isinstance(ch, discord.Thread) and ch.parent_id and ch.parent_id in watch_set:
         return True
     return False
+
+
+def _member_has_any_role(member: discord.Member, role_ids: tuple[int, ...]) -> bool:
+    return any(member.get_role(rid) is not None for rid in role_ids)
 
 
 def _prefilter_text(message: discord.Message) -> bool:
@@ -246,11 +257,36 @@ class AIModTimeoutAppeal(commands.Cog):
             logger.error("[AI-MOD] Lỗi Groq: %s", e)
             return None
 
-    async def _reply(self, message: discord.Message | None, ctx: commands.Context | None, content: str, **kwargs):
+    async def _reply(
+        self,
+        message: discord.Message | None,
+        ctx: commands.Context | None,
+        content: str,
+        *,
+        bot_messages: list[discord.Message] | None = None,
+        **kwargs,
+    ):
         if ctx is not None:
-            await ctx.send(content, **kwargs)
+            m = await ctx.send(content, **kwargs)
+            if bot_messages is not None:
+                bot_messages.append(m)
         elif message is not None:
-            await message.reply(content, mention_author=False, **kwargs)
+            m = await message.reply(content, mention_author=False, **kwargs)
+            if bot_messages is not None:
+                bot_messages.append(m)
+
+    async def _delete_help_exchange(
+        self,
+        user_msg: discord.Message,
+        bot_msgs: list[discord.Message],
+        delay_sec: float,
+    ) -> None:
+        await asyncio.sleep(delay_sec)
+        for msg in (user_msg, *bot_msgs):
+            try:
+                await msg.delete()
+            except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+                pass
 
     async def _run_appeal_flow(
         self,
@@ -260,6 +296,7 @@ class AIModTimeoutAppeal(commands.Cog):
         text_for_ai: str,
         ctx: commands.Context | None = None,
         message: discord.Message | None = None,
+        bot_messages: list[discord.Message] | None = None,
     ):
         """Chung cho !help và on_message: AI quyết định → gỡ timeout hoặc báo từ chối."""
         guild = requester.guild
@@ -272,11 +309,14 @@ class AIModTimeoutAppeal(commands.Cog):
                 message,
                 ctx,
                 "Bot cần quyền **Moderate Members** trên server.",
+                bot_messages=bot_messages,
             )
             return
 
         if target.bot:
-            await self._reply(message, ctx, "Không áp dụng cho bot.")
+            await self._reply(
+                message, ctx, "Không áp dụng cho bot.", bot_messages=bot_messages
+            )
             return
 
         if not target.is_timed_out():
@@ -284,16 +324,22 @@ class AIModTimeoutAppeal(commands.Cog):
                 message,
                 ctx,
                 f"{target.mention} hiện **không** đang bị timeout.",
+                bot_messages=bot_messages,
             )
             return
 
         ok_audit, restriction_or_err = await self._fetch_audit_timeout_reason(guild, target.id)
         if not ok_audit:
-            await self._reply(message, ctx, restriction_or_err)
+            await self._reply(message, ctx, restriction_or_err, bot_messages=bot_messages)
             return
 
         if not self._cooldown_ok(guild.id, requester.id):
-            await self._reply(message, ctx, f"{requester.mention} chờ **{int(COOLDOWN_SEC)}s** rồi thử lại.")
+            await self._reply(
+                message,
+                ctx,
+                f"{requester.mention} chờ **{int(COOLDOWN_SEC)}s** rồi thử lại.",
+                bot_messages=bot_messages,
+            )
             return
 
         payload = self._wrap_appeal_with_restriction(restriction_or_err, text_for_ai)
@@ -310,6 +356,7 @@ class AIModTimeoutAppeal(commands.Cog):
                 message,
                 ctx,
                 "Không gọi được AI — kiểm tra `GROQ_API_KEY` hoặc thử lại sau.",
+                bot_messages=bot_messages,
             )
             return
 
@@ -325,8 +372,9 @@ class AIModTimeoutAppeal(commands.Cog):
             await self._reply(
                 message,
                 ctx,
-                f"❌ Rambo **chưa đồng ý** gỡ timeout cho {target.mention} "
+                f"❌ AI **chưa đồng ý** gỡ timeout cho {target.mention} "
                 f"(điểm tin cậy lời nhờ: **{conf}%**, cần ≥ **{MIN_APPEAL_CONFIDENCE}%**).{extra}",
+                bot_messages=bot_messages,
             )
             logger.info(
                 "[AI-MOD] Từ chối gỡ timeout %s — appeal=%s conf=%s",
@@ -347,11 +395,17 @@ class AIModTimeoutAppeal(commands.Cog):
                 message,
                 ctx,
                 "Bot không đủ quyền hoặc không gỡ được người này (thứ bậc role / quyền).",
+                bot_messages=bot_messages,
             )
             return
         except discord.HTTPException as e:
             logger.error("[AI-MOD] HTTP khi timeout(None): %s", e)
-            await self._reply(message, ctx, f"Lỗi khi gỡ timeout: `{e}`")
+            await self._reply(
+                message,
+                ctx,
+                f"Lỗi khi gỡ timeout: `{e}`",
+                bot_messages=bot_messages,
+            )
             return
 
         logger.info("[AI-MOD] Đã gỡ timeout cho %s (conf=%s)", target.id, conf)
@@ -359,6 +413,7 @@ class AIModTimeoutAppeal(commands.Cog):
             message,
             ctx,
             f"✅ Đã gỡ timeout cho {target.mention}. (AI: **{conf}%**)",
+            bot_messages=bot_messages,
         )
 
     @commands.command(
@@ -368,31 +423,58 @@ class AIModTimeoutAppeal(commands.Cog):
     )
     async def cmd_help_timeout(self, ctx: commands.Context, member: discord.Member, *, reason: str = ""):
         """!help @member — nhờ AI xem có mở timeout không (kèm lý do sau mention)."""
+        bot_msgs: list[discord.Message] = []
+
+        def schedule_cleanup() -> None:
+            asyncio.create_task(
+                self._delete_help_exchange(ctx.message, bot_msgs, HELP_CMD_DELETE_AFTER_SEC)
+            )
+
         if ctx.guild is None:
-            await ctx.send("Lệnh chỉ dùng trong server.")
+            bot_msgs.append(await ctx.send("Lệnh chỉ dùng trong server."))
+            schedule_cleanup()
             return
 
-        text_for_ai = self._compose_command_appeal_text(ctx.author, member, reason)
+        author = ctx.author
+        if not isinstance(author, discord.Member):
+            bot_msgs.append(await ctx.send("Không xác định được member — thử lại trong server."))
+            schedule_cleanup()
+            return
+        if not _member_has_any_role(author, HELP_ALLOWED_ROLE_IDS):
+            bot_msgs.append(await ctx.send("Bạn không có quyền dùng lệnh này."))
+            schedule_cleanup()
+            return
+
+        text_for_ai = self._compose_command_appeal_text(author, member, reason)
         await self._run_appeal_flow(
             requester=ctx.author,
             target=member,
             text_for_ai=text_for_ai,
             ctx=ctx,
             message=None,
+            bot_messages=bot_msgs,
         )
+        schedule_cleanup()
 
     @cmd_help_timeout.error
     async def cmd_help_timeout_error(self, ctx: commands.Context, error: commands.CommandError):
+        bot_msgs: list[discord.Message] = []
         if isinstance(error, commands.MemberNotFound):
-            await ctx.send("Không tìm thấy member — hãy **mention** hoặc dùng ID hợp lệ.")
-            return
-        if isinstance(error, commands.MissingRequiredArgument):
-            await ctx.send(
-                "**Cách dùng:** `!help @member <lý do>`\n"
-                "Ví dụ: `!help @user em xin lỗi, nhờ bot xem xét gỡ timeout`"
+            bot_msgs.append(
+                await ctx.send("Không tìm thấy member — hãy **mention** hoặc dùng ID hợp lệ.")
             )
-            return
-        raise error
+        elif isinstance(error, commands.MissingRequiredArgument):
+            bot_msgs.append(
+                await ctx.send(
+                    "**Cách dùng:** `!help @member <lý do>`\n"
+                    "Ví dụ: `!help @user em xin lỗi, nhờ bot xem xét gỡ timeout`"
+                )
+            )
+        else:
+            raise error
+        asyncio.create_task(
+            self._delete_help_exchange(ctx.message, bot_msgs, HELP_CMD_DELETE_AFTER_SEC)
+        )
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
