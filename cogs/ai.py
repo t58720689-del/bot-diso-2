@@ -32,7 +32,7 @@ _KEYWORD_RE = re.compile(
 )
 
 MIN_APPEAL_CONFIDENCE = 72
-COOLDOWN_SEC = 7200
+COOLDOWN_SEC = 86400
 
 # Kênh lắng nghe tin tự nhiên (không dùng lệnh). Để rỗng [] = chỉ dùng !help (mọi kênh).
 APPEAL_CHANNEL_IDS: list[int] = []
