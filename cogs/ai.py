@@ -32,7 +32,7 @@ _KEYWORD_RE = re.compile(
 )
 
 MIN_APPEAL_CONFIDENCE = 72
-COOLDOWN_SEC = 3600
+COOLDOWN_SEC = 7200
 
 # Kênh lắng nghe tin tự nhiên (không dùng lệnh). Để rỗng [] = chỉ dùng !help (mọi kênh).
 APPEAL_CHANNEL_IDS: list[int] = []
@@ -325,7 +325,7 @@ class AIModTimeoutAppeal(commands.Cog):
             await self._reply(
                 message,
                 ctx,
-                f"❌ AI **chưa đồng ý** gỡ timeout cho {target.mention} "
+                f"❌ Rambo **chưa đồng ý** gỡ timeout cho {target.mention} "
                 f"(điểm tin cậy lời nhờ: **{conf}%**, cần ≥ **{MIN_APPEAL_CONFIDENCE}%**).{extra}",
             )
             logger.info(
