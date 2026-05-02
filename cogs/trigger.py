@@ -2,6 +2,11 @@
 
 Lưu MongoDB (collection trigger_aliases). !insert / !showcase / !delete1 và gọi alias rút gọn:
 chỉ member có một trong TRIGGER_ROLE_IDS.
+
+Nếu config.TRIGGER_GLOBAL_POOL = True, mọi server/kênh dùng chung một kho trong Mongo.
+
+Nếu TRIGGER_GLOBAL_POOL = False và cấu hình TRIGGER_SHARED_GUILD_IDS, chỉ các server trong
+danh sách đó dùng chung một kho (lệnh thêm ở server A cũng gọi được ở server B).
 """
 
 from __future__ import annotations
@@ -42,6 +47,9 @@ _ALIAS_RE = re.compile(r"^[a-zA-Z0-9_-]{1,32}$")
 MAX_TRIGGER_CONTENT = 8192
 _DISCORD_CHUNK = 1900
 
+# guild_id trong Mongo khi TRIGGER_GLOBAL_POOL — không trùng ID server thật
+_GLOBAL_TRIGGER_GUILD_ID = 0
+
 
 async def _send_in_chunks(sendable: discord.abc.Messageable, text: str) -> None:
     """Gửi nội dung; chia nhiều tin nếu vượt giới hạn Discord."""
@@ -57,6 +65,16 @@ async def _send_in_chunks(sendable: discord.abc.Messageable, text: str) -> None:
 def _member_allowed(member: discord.Member) -> bool:
     role_ids = {r.id for r in member.roles}
     return bool(role_ids & TRIGGER_ROLE_IDS)
+
+
+def _effective_guild_id(guild_id: int) -> int:
+    """Guild id dùng khi đọc/ghi Mongo: global pool hoặc nhóm server trong TRIGGER_SHARED_GUILD_IDS."""
+    if getattr(config, "TRIGGER_GLOBAL_POOL", False):
+        return _GLOBAL_TRIGGER_GUILD_ID
+    shared = getattr(config, "TRIGGER_SHARED_GUILD_IDS", ()) or ()
+    if not shared or guild_id not in shared:
+        return guild_id
+    return min(shared)
 
 
 class Trigger(commands.Cog):
@@ -146,15 +164,16 @@ class Trigger(commands.Cog):
             content = content[:MAX_TRIGGER_CONTENT]
 
         now = datetime.now(timezone.utc)
+        gid = _effective_guild_id(ctx.guild.id)
         doc = {
-            "guild_id": ctx.guild.id,
+            "guild_id": gid,
             "alias": alias_norm,
             "content": content,
             "created_by": ctx.author.id,
             "updated_at": now,
         }
         await self._db[MONGO_COLLECTION].update_one(
-            {"guild_id": ctx.guild.id, "alias": alias_norm},
+            {"guild_id": gid, "alias": alias_norm},
             {"$set": doc, "$setOnInsert": {"created_at": now}},
             upsert=True,
         )
@@ -163,8 +182,9 @@ class Trigger(commands.Cog):
             + ("…" if len(content) > 500 else "")
         )
         logger.info(
-            "[TRIGGER] upsert guild=%s alias=%s by=%s",
+            "[TRIGGER] upsert guild=%s (store=%s) alias=%s by=%s",
             ctx.guild.id,
+            gid,
             alias_norm,
             ctx.author.id,
         )
@@ -192,7 +212,7 @@ class Trigger(commands.Cog):
             await ctx.send("Chưa cấu hình MongoDB (`MONGO_URI`).")
             return
 
-        rows = await self._list_guild(ctx.guild.id)
+        rows = await self._list_guild(_effective_guild_id(ctx.guild.id))
         if not rows:
             await ctx.send("Chưa có lệnh rút gọn nào. Dùng `!insert <tên> <link>` để thêm.")
             return
@@ -244,14 +264,16 @@ class Trigger(commands.Cog):
             await ctx.send("Tên lệnh không hợp lệ.")
             return
 
+        gid = _effective_guild_id(ctx.guild.id)
         result = await self._db[MONGO_COLLECTION].delete_one(
-            {"guild_id": ctx.guild.id, "alias": alias_norm}
+            {"guild_id": gid, "alias": alias_norm}
         )
         if result.deleted_count:
             await ctx.send(f"Đã xóa lệnh rút gọn `!{discord.utils.escape_markdown(alias_norm)}`.")
             logger.info(
-                "[TRIGGER] delete guild=%s alias=%s by=%s",
+                "[TRIGGER] delete guild=%s (store=%s) alias=%s by=%s",
                 ctx.guild.id,
+                gid,
                 alias_norm,
                 ctx.author.id,
             )
@@ -274,7 +296,7 @@ class Trigger(commands.Cog):
         if self._db is None:
             return
 
-        doc = await self._get_doc(ctx.guild.id, invoked)
+        doc = await self._get_doc(_effective_guild_id(ctx.guild.id), invoked)
         if doc is None:
             return
 
