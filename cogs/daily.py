@@ -202,6 +202,56 @@ SCHEDULES = [
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 class ScheduledMessages(commands.Cog):
     """Gửi tin nhắn tự động vào các giờ được cài đặt trong SCHEDULES."""
 
