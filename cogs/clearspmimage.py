@@ -46,7 +46,7 @@ GROQ_VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
 
 MAX_IMAGES_PER_MESSAGE = 4
 MAX_IMAGE_BYTES = 3_800_000
-TIMEOUT_DURATION = timedelta(hours=200)
+TIMEOUT_DURATION = timedelta(hours=600)
 
 # Kênh tự quét mỗi tin nhắn mới (đổi sang Channel ID thật nếu 987/123 là placeholder)
 AUTO_SCAN_CHANNEL_IDS: frozenset[int] = frozenset({1411520340508807178})
