@@ -30,7 +30,7 @@ SCHEDULES = [
         "embed_title": None,
         "embed_desc": None,
         "embed_color": None,
-        "enabled": True,   # ← Đổi thành True để bật
+        "enabled": False,   # ← Đổi thành True để bật
     },
     # ── Ví dụ 2: Embed lúc 12:00 trưa ──────────────────────────────────────
     {
@@ -40,7 +40,7 @@ SCHEDULES = [
         "embed_title": None,
         "embed_desc": None,
         "embed_color": None,
-        "enabled": True,   # ← Đổi thành True để bật
+        "enabled": False,   # ← Đổi thành True để bật
     },
 
 
@@ -55,7 +55,7 @@ SCHEDULES = [
         "embed_title": None,
         "embed_desc": None,
         "embed_color": None,
-        "enabled": True,   # ← Đổi thành True để bật
+        "enabled": False,   # ← Đổi thành True để bật
     },
 
 
@@ -70,7 +70,7 @@ SCHEDULES = [
         "embed_title": None,
         "embed_desc": None,
         "embed_color": None,
-        "enabled": True,   # ← Đổi thành True để bật
+        "enabled": False,   # ← Đổi thành True để bật
     },
 
 
@@ -103,7 +103,7 @@ SCHEDULES = [
         "embed_title": None,
         "embed_desc": None,
         "embed_color": None,
-        "enabled": True,   # ← Đổi thành True để bật
+        "enabled": False,   # ← Đổi thành True để bật
     },
 
     {
@@ -113,7 +113,7 @@ SCHEDULES = [
         "embed_title": None,
         "embed_desc": None,
         "embed_color": None,
-        "enabled": True,   # ← Đổi thành True để bật
+        "enabled": False,   # ← Đổi thành True để bật
     },
 
     
@@ -124,7 +124,7 @@ SCHEDULES = [
         "embed_title": None,
         "embed_desc": None,
         "embed_color": None,
-        "enabled": True,   # ← Đổi thành True để bật
+        "enabled": False,   # ← Đổi thành True để bật
     },
 
 
@@ -136,7 +136,7 @@ SCHEDULES = [
         "embed_title": None,
         "embed_desc": None,
         "embed_color": None,
-        "enabled": True,   # ← Đổi thành True để bật
+        "enabled": False,   # ← Đổi thành True để bật
     },
 
   
@@ -153,7 +153,7 @@ SCHEDULES = [
         "embed_title": None,
         "embed_desc": None,
         "embed_color": None,
-        "enabled": True,   # ← Đổi thành True để bật
+        "enabled": False,   # ← Đổi thành True để bật
     },
 
     
@@ -164,7 +164,7 @@ SCHEDULES = [
         "embed_title": None,
         "embed_desc": None,
         "embed_color": None,
-        "enabled": True,   # ← Đổi thành True để bật
+        "enabled": False,   # ← Đổi thành True để bật
     },
 
     
@@ -176,7 +176,7 @@ SCHEDULES = [
         "embed_title": None,
         "embed_desc": None,
         "embed_color": None,
-        "enabled": True,   # ← Đổi thành True để bật
+        "enabled": False,   # ← Đổi thành True để bật
     },
 
     
@@ -187,7 +187,7 @@ SCHEDULES = [
         "embed_title": None,
         "embed_desc": None,
         "embed_color": None,
-        "enabled": True,   # ← Đổi thành True để bật
+        "enabled": False,   # ← Đổi thành True để bật
     },
 
 
