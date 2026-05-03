@@ -2,7 +2,7 @@
 Quét ảnh (Groq vision): nội dung khiêu dâm hoặc lừa đảo (crypto/c casino giả…).
 - Tự động: kênh AUTO_SCAN_CHANNEL_IDS mỗi khi có tin mới có ảnh.
 - Report: @mention bot (mọi kênh) — chỉ member có một trong REPORT_AUTHOR_ROLE_IDS mới kích hoạt; có thể reply tin cần quét.
-- Sau timeout thành công: ghi data/list.json; xóa tin chứa ảnh vi phạm nếu tin đó nằm trong kênh AUTO_SCAN_CHANNEL_IDS (kênh quét).
+- Sau timeout thành công: ghi data/list.json; xóa tin chứa ảnh vi phạm nếu kênh auto-scan HOẶC tin được quét qua report @mention bot.
 - !list: xem danh sách vi phạm (chỉ role REPORT_AUTHOR_ROLE_IDS).
 """
 
@@ -544,10 +544,14 @@ class ClearSpamImage(commands.Cog):
 
             scan_ch = scan_msg.channel
             if isinstance(scan_ch, (discord.abc.GuildChannel, discord.Thread)):
-                if _channel_matches_auto_scan(scan_ch):
+                delete_violating_msg = _channel_matches_auto_scan(scan_ch) or mode == "report"
+                if delete_violating_msg:
                     try:
                         await scan_msg.delete()
-                        _out(f"Đã xóa tin vi phạm msg={scan_msg.id} (kênh auto-scan)")
+                        _out(
+                            f"Đã xóa tin vi phạm msg={scan_msg.id} "
+                            f"({'report @mention' if mode == 'report' else 'kênh auto-scan'})"
+                        )
                     except discord.Forbidden:
                         _out("Không đủ quyền xóa tin vi phạm.", "warning")
                     except discord.NotFound:
