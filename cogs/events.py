@@ -67,6 +67,7 @@ class Events(commands.Cog):
             "hướng dẫn sài":"https://discord.com/channels/1184348724999225355/1184348725632581713/1394786706552524931",
             "hướng dẫn kênh":"https://discord.com/channels/1184348724999225355/1184348725632581713/1394786706552524931",
             "điểm chuẩn hub":"https://media.discordapp.net/attachments/1486759905431130175/1497267310598033459/cc3b4ng20be1bb9120hubfinal201-1755898941713-1755898942603944920565.png?ex=69ece658&is=69eb94d8&hm=17235617a54de671768f1eef6df571ea5e959c58f3955c9076418973498acf47&=&format=webp&quality=lossless&width=934&height=934",
+            "trình":"https://www.youtube.com/watch?v=7kO_ALcwNAw",
 
 
 
